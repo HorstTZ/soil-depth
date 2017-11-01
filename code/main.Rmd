@@ -24,6 +24,7 @@ Texto de exemplo para a criação do modelo de primeiro parágrafo.
 
 Para um novo parágrafo é necessária uma linha em branco.
 
+
 # Material e Métodos
 
 Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto [@AngeliniEtAl2017]
@@ -35,4 +36,85 @@ Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto.
 Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. 
 Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. 
 
+
 # Referências
+
+```{r defin}
+# Carregar os Pacotes
+library(magrittr)
+library(dplyr)
+library(glue)
+library(lattice)
+library(latticeExtra)
+library(georob)
+library(sp)
+library(mapview)
+
+# Sistemas de referência de coordenadas (Fonte: http://spatialreference.org/ref/epsg/)
+wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
+sirgas2000 <- sp::CRS('+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs')
+
+```
+
+```{r dados}
+dados <- read.csv("D:/Projetos/soil-depth/data/GateadosDados.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
+str(dados)
+plot(Y ~ X, dados)
+barplot(dados$PF)
+
+pistola <- 
+ raster::shapefile('D:/Projetos/soil-depth/data/contorno/limite_projeto.shp',
+                   stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
+ sp::spTransform(wgs84utm22s)
+```
+
+```{r coor}
+#transformar coord
+sp :: coordinates(dados) <- c('X' , 'Y') #perfis25 se torna um objeto espacial
+sp :: proj4string(dados) <- wgs84utm22s #coordenada referencia
+
+dados <- sp :: spTransform(dados, wgs84utm22s) #transforma coordenada para wgs84
+
+# Rampas de cores
+col_soil_var <- topo.colors(100)
+
+mapview(pistola)
+mapview(dados)
+```
+
+```{r Variograma, fig.asp=1, fig.width=7, fig.height=7}
+#limites <- seq(0, 2500, length.out=10)
+variograma <- gstat::variogram(PF ~ 1, dados)#, boundaries = limites)
+plot(variograma, ylab = "Semivariância", xlab = "Distância (m)", pch = 20, cex = 1.5, plot.numbers = TRUE) #plot.numbers (pares de dados)
+
+```
+
+```{r AjusteVar, fig.asp=1, fig.width=10, fig.height=10}
+#Depois, precisamos encontrar uma função do semivariograma/de covariãncia que descrevam esse comportamento dos dados:
+# exponencial
+# gaussiana
+#efeito pepita puro ou puro ruido
+
+#definir parametros iniciais
+m_exp <- gstat::vgm(psill = 37000 - 8000, model = 'Exp', range = 300, nugget = 8000)
+
+m_exp <- gstat::fit.variogram(variograma, m_exp)
+plot(variograma, m_exp, col.line = 'red', xlab = 'Distância (m)', ylab = 'Semivariância')
+```
+
+```{r PredictionKrige}
+
+#Criar o grid
+grid <- sp::spsample(pistola, 10000, type = 'regular')
+plot(grid@coords, asp = 1)
+
+#Mapa com valores preditos
+mapa_exp <- gstat::krige(PF ~ 1, dados, grid, m_exp, debug.level = 1)
+sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
+sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
+
+#Passar para desvio padrão CUIDADO PARA NÃO FAZER DUAS VEZES
+mapa_exp$var1.var <- sqrt(mapa_exp$var1.var)
+sp::spplot(mapa_exp, 2, col.regions = col_soil_var)
+```
+
