@@ -17,28 +17,6 @@ rmarkdown::render('main.Rmd', encoding = 'UTF-8', output_dir = "../docs")
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-# Introdução
-
-Texto de exemplo para a criação do modelo de primeiro parágrafo.
-
-Para um novo parágrafo é necessária uma linha em branco.
-
-
-# Material e Métodos
-
-Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto [@AngeliniEtAl2017]
-Texto. Texto. Texto. Texto. Texto. @AngeliniEtAl2017. Texto. Texto. Texto. 
-Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. 
-
-## Dados do solo
-
-Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. 
-Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. Texto. 
-
-
-# Referências
-
 ```{r defin}
 # Carregar os Pacotes
 library(magrittr)
@@ -117,4 +95,3 @@ sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
 mapa_exp$var1.var <- sqrt(mapa_exp$var1.var)
 sp::spplot(mapa_exp, 2, col.regions = col_soil_var)
 ```
-
