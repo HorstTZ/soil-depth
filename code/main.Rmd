@@ -39,29 +39,77 @@ col_soil_var <- topo.colors(100)
 ```
 
 ```{r data}
+#Importar pontos
 
-dados <- read.csv("D:/Projetos/soil-depth/data/GateadosDados.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
+pontos <- read.csv("D:/Projetos/soil-depth/data/GateadosDados.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
+View(pontos)
+
+#transformar coord dos pontos
+sp :: coordinates(pontos) <- c('X' , 'Y')
+sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
+
+pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
+
+mapview(pontos)
 str(dados)
-plot(Y ~ X, dados)
-barplot(dados$PFd)
+plot(Y ~ X, pontos)
+barplot(pontos$PFd)
 
+```
 
+```{r data}
+#Importar shape da área (contorno)
 pistola <- 
  raster::shapefile('D:/Projetos/soil-depth/data/contorno/limite_projeto.shp',
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
  sp::spTransform(wgs84utm22s)
-```
-
-```{r coord}
-#transformar coord
-sp :: coordinates(dados) <- c('X' , 'Y') #perfis25 se torna um objeto espacial
-sp :: proj4string(dados) <- wgs84utm22s #coordenada referencia
-
-dados <- sp :: spTransform(dados, wgs84utm22s) #transforma coordenada para wgs84
 
 mapview(pistola)
-mapview(dados)
 ```
+
+```{r}
+#Importar shape da produtividade do projeto pistola e transformar as coordenadas
+#shape no pacote raster pela função shapefile
+
+ProdutividadePistola <- 
+ raster::shapefile('D:/Projetos/soil-depth/data/Produtividade/ProdutividadePistola.shp',
+                   stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
+ sp::spTransform(wgs84utm22s)
+
+sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa Sítio")
+
+mapview(ProdutividadePistola)
+
+```
+
+```{r}
+#Amostragem
+
+#Criar coluna Sitio no conjunto dados e amostrar o shape ProdutividadePistola nos 102 pontos
+pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola) %>% unlist()
+
+str(dados)
+dados@data
+
+```
+
+```{r}
+#localização dos pontos
+
+sp::spplot(
+  ProdutividadePistola, scales = list(draw = TRUE),
+  main = 'Localização dos pontos') +
+  lattice::xyplot(Y ~ X, data = as.data.frame(pontos@coords),
+                  pch = 20, col = 'red', lwd = 2, cex = 2) %>%
+  latticeExtra::as.layer()
+```
+
+
+
+
+
+
+
 
 ```{r Variogram, fig.asp=1, fig.width=7, fig.height=7}
 
