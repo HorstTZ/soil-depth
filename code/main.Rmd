@@ -57,10 +57,9 @@ shapiro.test(pontos$PFd)
 shapiro.test(pontos$h)
 ```
 
-```{r}
-#Layout
+```{r fig.asp=1}
   nf <- layout(matrix(c(1,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
-  
+
   # Draw the boxplot 
   par(mar=c(0, 5.1, 6, 2.1))
   boxplot(dados$PFd , horizontal=TRUE , xaxt="n", col="grey90" , frame=F)
@@ -70,8 +69,8 @@ shapiro.test(pontos$h)
   par(mar=c(5, 5.1, 0, 2.1))
   
   ##frequencia com linha normal
-  ex4 <-hist(dados$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
-          xlim=c(1,10),  ylim=c(0,26),ylab="",main="") 
+  hist(dados$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
+          xlim=c(1,10),  ylim=c(0,37),ylab="",main="") 
     xfit<-seq(min(x),max(x), length=50) 
     yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
    yfit<-  yfit*diff(ex4$mids[1:2])*length(x) 
@@ -81,8 +80,6 @@ shapiro.test(pontos$h)
     rug(x, col="red")
      box()
      
-
-ex4
 
 ```
 
@@ -95,7 +92,6 @@ pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs
 
 mapview(pontos)
 ```
-
 
 ```{r}
 #Importar shape da área (contorno)
