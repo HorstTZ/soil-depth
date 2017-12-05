@@ -39,6 +39,8 @@ sirgas2000 <- sp::CRS('+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_def
 col_soil_var <- topo.colors(100)
 ```
 
+Importar dados
+
 ```{r}
 #Importar pontos
 
@@ -48,50 +50,64 @@ View(pontos)
 ```
 
 ```{r}
-str(dados)
-plot(Y ~ X, pontos)
-barplot(pontos$PFd)
-
-summary(pontos)
-shapiro.test(pontos$PFd)
-shapiro.test(pontos$h)
-```
-
-```{r fig.asp=1}
-  nf <- layout(matrix(c(1,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
-
-  # Draw the boxplot 
-  par(mar=c(0, 5.1, 6, 2.1))
-  boxplot(dados$PFd , horizontal=TRUE , xaxt="n", col="grey90" , frame=F)
-  box()
-  
-  #Draw and the histogram 
-  par(mar=c(5, 5.1, 0, 2.1))
-  
-  ##frequencia com linha normal
-  hist(dados$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
-          xlim=c(1,10),  ylim=c(0,37),ylab="",main="") 
-    xfit<-seq(min(x),max(x), length=50) 
-    yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
-   yfit<-  yfit*diff(ex4$mids[1:2])*length(x) 
-    lines(xfit, yfit, col="red", lwd=2) 
-    mtext("Frequência",line=2.6, side=2, cex=1) 
-    mtext("PF (dm)",line=2.6, side=1, cex=1) 
-    rug(x, col="red")
-     box()
-     
-
-```
-
-```{r}
 #transformar coord dos pontos
 sp :: coordinates(pontos) <- c('X' , 'Y')
 sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
 
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
-
 mapview(pontos)
 ```
+
+Análise da estrutura dos dados
+
+```{r}
+str(pontos)
+plot(Y ~ X, pontos)
+barplot(pontos$PFd)
+summary(pontos)
+
+#normalidade profundidade
+shapiro.test(pontos$PFd)
+
+hist(pontos$PFd)
+
+pontos$boxcoxpfd <- fifer::boxcoxR(pontos$PFd) %>% unlist()
+
+#normalidade altura
+hist(pontos$boxcoxpfd)
+
+shapiro.test(pontos$h)
+hist(pontos$h)
+
+```
+
+```{r fig.asp=1}
+nf <- layout(matrix(c(1,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
+
+# Draw the boxplot 
+par(mar=c(0, 5.1, 6, 2.1))
+  boxplot(pontos$PFd , horizontal=TRUE , xaxt="n", col="grey90" , frame=F)
+  box()
+  
+#Draw and the histogram 
+par(mar=c(5, 5.1, 0, 2.1))
+
+##frequencia com linha normal
+ex <- hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
+          xlim=c(1,10),  ylim=c(0,37),ylab="",main="") 
+    xfit<-seq(min(pontos$PFd),max(pontos$PFd), length=50) 
+    yfit<-dnorm(xfit,mean=mean(pontos$PFd),sd=sd(pontos$PFd))
+   yfit<-  yfit*diff(ex$mids[1:2])*length(pontos$PFd) 
+    lines(xfit, yfit, col="red", lwd=2) 
+    mtext("Frequência",line=2.6, side=2, cex=1) 
+    mtext("PF (dm)",line=2.6, side=1, cex=1) 
+    rug((pontos$PFd), col="red")
+     box()
+     
+
+```
+
+Importar covariáveis
 
 ```{r}
 #Importar shape da área (contorno)
@@ -106,7 +122,6 @@ mapview(pistola)
 ```{r}
 #Importar shape da produtividade do projeto pistola e transformar as coordenadas
 #shape no pacote raster pela função shapefile
-
 ProdutividadePistola <- 
  raster::shapefile('D:/Projetos/soil-depth/data/Produtividade/ProdutividadePistola.shp',
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
@@ -116,9 +131,10 @@ sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa Sítio
 
 mapview(ProdutividadePistola)
 ProdutividadePistola@data
-str(ProdutividadePistola)
 
 ```
+
+Amostragem
 
 ```{r}
 #Amostragem
@@ -126,26 +142,68 @@ str(ProdutividadePistola)
 #Criar coluna Sitio no conjunto dados e amostrar o shape ProdutividadePistola nos 102 pontos
 pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola) %>% unlist()
 
-str(dados)
-dados@data
+str(pontos)
+pontos@data
+```
 
+```{r}
+covar <- read.csv("D:/Projetos/soil-depth/data/GateadosCovar.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
+
+#transformar coord dos pontos
+sp :: coordinates(covar) <- c('X' , 'Y')
+sp :: proj4string(covar) <- wgs84utm22s #coordenada referencia
+
+covar <- sp :: spTransform(covar, wgs84utm22s) #transforma coordenada para wgs84
+mapview(covar)
+```
+
+```{r}
+dados <- 
+  merge(pontos, covar, by.x = X, by.y = X)
+
+dados@data
 ```
 
 ```{r}
 #localização dos pontos
-
 sp::spplot(
   ProdutividadePistola, scales = list(draw = TRUE),
   main = 'Localização dos pontos') +
   lattice::xyplot(Y ~ X, data = as.data.frame(pontos@coords),
                   pch = 20, col = 'red', lwd = 2, cex = 2) %>%
-  latticeExtra::as.layer()
+latticeExtra::as.layer()
 ```
 
 
+Análise exploratória dos dados
+
+```{r}
+
+as.formula(paste("boxcoxpfd~",paste(names(dados)[c(11:30)], collapse="+"), collapse=""))
 
 
-###########################################
+lm_fit <- lm(boxcoxpfd ~ Sitio + LS + TWI + VD + CNBL + ELEV + DECLI + ASP + VDCN, dados)
+
+summary(lm_fit)
+dados@data
+```
+
+```{r}
+op <- par(mfrow = c(2, 2))
+plot(lm_fit, which = 1:4, cex = 1.5, lwd = 1.5)
+par(op)
+```
+
+Parte I - Profundidade do solo
+
+n = 102 observações para calibração + predição + validação (108 ha)
+Validação: validação cruzada (leave-one-out)
+Covariáveis: atributos de terreno com resolução espacial de 10 m + sítios (4 classes)
+Suporte amostral de blocos (10 x 10 m)
+Erro de medida
+Modelo linear misto de variação espacial (georob)
+- Efeitos fixos: floresta aleatória
+Predição espacial: suporte de blocos: 10x10 m e por talhão
 
 
 
