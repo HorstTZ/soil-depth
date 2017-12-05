@@ -14,7 +14,7 @@ lang: pt
 rmarkdown::render('main.Rmd', encoding = 'UTF-8', output_dir = "../docs")
 ```
 
-```{r setup, include=FALSE}
+```{r, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -29,6 +29,7 @@ library(georob)
 library(sp)
 library(mapview)
 library(raster)
+library(rmarkdown)
 
 # Sistemas de referência de coordenadas (Fonte: http://spatialreference.org/ref/epsg/)
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
@@ -38,12 +39,54 @@ sirgas2000 <- sp::CRS('+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_def
 col_soil_var <- topo.colors(100)
 ```
 
-```{r data}
+```{r}
 #Importar pontos
 
 pontos <- read.csv("D:/Projetos/soil-depth/data/GateadosDados.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
 View(pontos)
 
+```
+
+```{r}
+str(dados)
+plot(Y ~ X, pontos)
+barplot(pontos$PFd)
+
+summary(pontos)
+shapiro.test(pontos$PFd)
+shapiro.test(pontos$h)
+```
+
+```{r}
+#Layout
+  nf <- layout(matrix(c(1,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
+  
+  # Draw the boxplot 
+  par(mar=c(0, 5.1, 6, 2.1))
+  boxplot(dados$PFd , horizontal=TRUE , xaxt="n", col="grey90" , frame=F)
+  box()
+  
+  #Draw and the histogram 
+  par(mar=c(5, 5.1, 0, 2.1))
+  
+  ##frequencia com linha normal
+  ex4 <-hist(dados$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
+          xlim=c(1,10),  ylim=c(0,26),ylab="",main="") 
+    xfit<-seq(min(x),max(x), length=50) 
+    yfit<-dnorm(xfit,mean=mean(x),sd=sd(x)) 
+   yfit<-  yfit*diff(ex4$mids[1:2])*length(x) 
+    lines(xfit, yfit, col="red", lwd=2) 
+    mtext("Frequência",line=2.6, side=2, cex=1) 
+    mtext("PF (dm)",line=2.6, side=1, cex=1) 
+    rug(x, col="red")
+     box()
+     
+
+ex4
+
+```
+
+```{r}
 #transformar coord dos pontos
 sp :: coordinates(pontos) <- c('X' , 'Y')
 sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
@@ -51,13 +94,10 @@ sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
 
 mapview(pontos)
-str(dados)
-plot(Y ~ X, pontos)
-barplot(pontos$PFd)
-
 ```
 
-```{r data}
+
+```{r}
 #Importar shape da área (contorno)
 pistola <- 
  raster::shapefile('D:/Projetos/soil-depth/data/contorno/limite_projeto.shp',
@@ -79,6 +119,8 @@ ProdutividadePistola <-
 sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa Sítio")
 
 mapview(ProdutividadePistola)
+ProdutividadePistola@data
+str(ProdutividadePistola)
 
 ```
 
@@ -107,81 +149,7 @@ sp::spplot(
 
 
 
+###########################################
 
 
 
-
-```{r Variogram, fig.asp=1, fig.width=7, fig.height=7}
-
-#limites <- seq(0, 2500, length.out=10)
-variograma <- gstat::variogram(PFd ~ 1, dados)#, boundaries = limites)
-plot(variograma, ylab = "Semivariância", xlab = "Distância (m)", pch = 20, cex = 1.5, plot.numbers = TRUE) #plot.numbers (pares de dados)
-
-
-```
-
-```{r AjusteVar, fig.asp=1}
-#Depois, precisamos encontrar uma função do semivariograma/de covariãncia que descrevam esse comportamento dos dados:
-# exponencial
-# gaussiana
-#efeito pepita puro ou puro ruido
-
-#definir parametros iniciais
-m_exp <- gstat::vgm(psill = 13 - 7, model = 'Exp', range = 15, nugget = 5)
-m_exp <- gstat::fit.variogram(variograma, m_exp)
-
-#criar espaço para figura
-plot(variograma, m_exp, col.line = 'red', xlab = 'Distância (m)', ylab = 'Semivariância')
-
-```
-
-```{r PredictionKrige}
-
-#Criar o grid
-grid <- sp::spsample(pistola, 10000, type = 'regular')
-plot(grid@coords, asp = 1)
-
-
-#Mapa com valores preditos
-mapa_exp <- gstat::krige(PF ~ 1, dados, grid, m_exp, debug.level = 1)
-sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
-
-
-sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
-
-```
-
-```{r DesvP}
-#Passar para desvio padrão CUIDADO PARA NÃO FAZER DUAS VEZES
-mapa_exp$var1.var <- sqrt(mapa_exp$var1.var)
-
-sp::spplot(mapa_exp, 2, col.regions = col_soil_var)
-```
-
-```{r Covars}
-
-ASP <- raster("D:/Projetos/soil-depth/data/Covars/ASP.tif")
-CNBL <- raster("D:/Projetos/soil-depth/data/Covar/CNBL.tif")
-DDR <- raster("D:/Projetos/soil-depth/data/Covar/DDR.tif")
-DECLI <- raster("D:/Projetos/soil-depth/data/Covar/DECLI.tif")
-DFI <- raster("D:/Projetos/soil-depth/data/Covar/DFI.tif")
-DUI <- raster("D:/Projetos/soil-depth/data/Covar/DUI.tif")
-ELEV <- raster("D:/Projetos/soil-depth/data/Covar/ELEV.tif")
-LC <- raster("D:/Projetos/soil-depth/data/Covar/LC.tif")
-LS <- raster("D:/Projetos/soil-depth/data/Covar/LS.tif")
-MC <- raster("D:/Projetos/soil-depth/data/Covar/MC.tif")
-PLC <- raster("D:/Projetos/soil-depth/data/Covar/PLC.tif")
-RSP <- raster("D:/Projetos/soil-depth/data/Covar/RSP.tif")
-TI <- raster("D:/Projetos/soil-depth/data/Covar/TI.tif")
-TPI <- raster("D:/Projetos/soil-depth/data/Covar/TPI.tif")
-TRI <- raster("D:/Projetos/soil-depth/data/Covar/TRI.tif")
-TWI <- raster("D:/Projetos/soil-depth/data/Covar/TWI.tif")
-VD <- raster("D:/Projetos/soil-depth/data/Covar/VD.tif")
-VDCN <- raster("D:/Projetos/soil-depth/data/Covar/VDCN.tif")
-
-
-
-
-
-
-```
