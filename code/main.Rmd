@@ -18,7 +18,7 @@ rmarkdown::render('main.Rmd', encoding = 'UTF-8', output_dir = "../docs")
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r defin}
+```{r }
 # Carregar os Pacotes
 library(magrittr)
 library(dplyr)
@@ -30,6 +30,8 @@ library(sp)
 library(mapview)
 library(raster)
 library(rmarkdown)
+library(caret)
+library(randomForest)
 
 # Sistemas de referência de coordenadas (Fonte: http://spatialreference.org/ref/epsg/)
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
@@ -67,7 +69,7 @@ barplot(pontos$PFd)
 summary(pontos)
 
 #normalidade profundidade
-shapiro.test(pontos$PFd)
+stats::shapiro.test(pontos$PFd)
 
 hist(pontos$PFd)
 
@@ -76,7 +78,7 @@ pontos$boxcoxpfd <- fifer::boxcoxR(pontos$PFd) %>% unlist()
 #normalidade altura
 hist(pontos$boxcoxpfd)
 
-shapiro.test(pontos$h)
+stats::shapiro.test(pontos$h)
 hist(pontos$h)
 
 ```
@@ -103,9 +105,33 @@ ex <- hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
     mtext("PF (dm)",line=2.6, side=1, cex=1) 
     rug((pontos$PFd), col="red")
      box()
-     
-
 ```
+
+```{r fig.asp=1}
+nf <- layout(matrix(c(1,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
+
+# Draw the boxplot 
+par(mar=c(0, 5.1, 6, 2.1))
+  boxplot(pontos$h , horizontal=TRUE , xaxt="n", col="grey90" , frame=F)
+  box()
+  
+#Draw and the histogram 
+par(mar=c(5, 5.1, 0, 2.1))
+
+##frequencia com linha normal
+ex <- hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
+          xlim=c(23,38),  ylim=c(0,16),ylab="",main="") 
+    xfit<-seq(min(pontos$h),max(pontos$h), length=50) 
+    yfit<-dnorm(xfit,mean=mean(pontos$h),sd=sd(pontos$h))
+   yfit<-  yfit*diff(ex$mids[1:2])*length(pontos$h) 
+    lines(xfit, yfit, col="red", lwd=2) 
+    mtext("Frequência",line=2.6, side=2, cex=1) 
+    mtext("h (m)",line=2.6, side=1, cex=1) 
+    rug((pontos$h), col="red")
+     box()
+     
+```
+
 
 Importar covariáveis
 
@@ -129,8 +155,8 @@ ProdutividadePistola <-
 
 sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa Sítio")
 
-mapview(ProdutividadePistola)
-ProdutividadePistola@data
+#mapview(ProdutividadePistola)
+
 
 ```
 
@@ -141,10 +167,15 @@ Amostragem
 
 #Criar coluna Sitio no conjunto dados e amostrar o shape ProdutividadePistola nos 102 pontos
 pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola) %>% unlist()
-
 str(pontos)
 pontos@data
 ```
+
+```{r}
+pontos$Sitio <- as.factor(pontos@data$Sitio)
+str(pontos)
+```
+
 
 ```{r}
 covar <- read.csv("D:/Projetos/soil-depth/data/GateadosCovar.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
@@ -154,23 +185,24 @@ sp :: coordinates(covar) <- c('X' , 'Y')
 sp :: proj4string(covar) <- wgs84utm22s #coordenada referencia
 
 covar <- sp :: spTransform(covar, wgs84utm22s) #transforma coordenada para wgs84
-mapview(covar)
+#mapview(covar)
 ```
 
 ```{r}
 dados <- 
-  merge(pontos, covar, by.x = X, by.y = X)
+  merge(pontos, covar, by.x = ID, by.y = ID)
 
 dados@data
+str(dados)
 ```
 
 ```{r}
 #localização dos pontos
 sp::spplot(
-  ProdutividadePistola, scales = list(draw = TRUE),
+  ProdutividadePistola, scales = list(draw = T),
   main = 'Localização dos pontos') +
-  lattice::xyplot(Y ~ X, data = as.data.frame(pontos@coords),
-                  pch = 20, col = 'red', lwd = 2, cex = 2) %>%
+  lattice::xyplot(Y ~ X, data = as.data.frame(dados@coords),
+                  pch = 20, col = 'red', lwd = 2, cex = 1.5) %>%
 latticeExtra::as.layer()
 ```
 
@@ -193,6 +225,51 @@ op <- par(mfrow = c(2, 2))
 plot(lm_fit, which = 1:4, cex = 1.5, lwd = 1.5)
 par(op)
 ```
+
+
+Predição por rf
+
+```{r}
+caret::modelLookup('rf')
+
+```
+
+```{r}
+rf_fit <- train(PFd ~ DECLI, as.data.frame(dados), method = "rf", ntree = 1000, mtry = 2 )
+rf_fit
+```
+
+```{r}
+#Random Forest
+
+form <- as.formula(paste("PFd~", paste(names(dados)[c(12:30)], collapse="+"), collapse=""))
+rf_fit <- train(form = form, data = dados@data,
+  method = "rf", tuneLength = 1, importance = TRUE, trControl = trainControl("LOOCV"))
+```
+
+```{r}
+dados@data$rf <- rf_fit$finalModel$predicted
+lm(PFd ~ rf, dados@data) %>% plot()
+```
+
+```{r}
+grid <- sp::spsample(pistola, 10000, type = 'regular')
+mapview(grid)
+
+grid <- 
+  sp::SpatialPointsDataFrame(
+    coords = grid@coords, 
+    data = data.frame(dados@data),
+    proj4string = grid@proj4string)
+colnames(grid@coords) <- colnames(dados@coords)
+```
+
+```{r}
+grid$rf <- raster::predict(rf_fit, grid)
+spplot(grid, 'rf')
+```
+
+
 
 Parte I - Profundidade do solo
 
