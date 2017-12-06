@@ -18,62 +18,47 @@ rmarkdown::render('main.Rmd', encoding = 'UTF-8', output_dir = "../docs")
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r }
-# Carregar os Pacotes
-library(magrittr)
-library(dplyr)
-library(glue)
-library(lattice)
-library(latticeExtra)
-library(georob)
-library(sp)
-library(mapview)
-library(raster)
-library(rmarkdown)
-library(caret)
-library(randomForest)
+Caracterização da área dos dados
 
-# Sistemas de referência de coordenadas (Fonte: http://spatialreference.org/ref/epsg/)
-wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
-sirgas2000 <- sp::CRS('+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs')
+Os dados utilizados para este trabalho são provenientes de um povoamento florestal de 108 ha de $Pinus taeda$ L. de 29 anos. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima na área é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
 
-# Rampas de cores
-col_soil_var <- topo.colors(100)
+Na área de estudo identificamos Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Háplicos e Húmicos, Latossolos Vermelhos e Gleissolos Melânicos, as quais representam a topossequência clássica da área de estudo (Figura 1c). Conforme as tendências observadas, em locais de relevo plano ou suavemente ondulado com boa drenagem, estão solos profundos com sequência de horizontes A-Bw (Latossolos), em condições de má drenagem, ocorrem solos com a sequência de horizonte A-Cg (Gleissolos). Nos relevos ondulado ou fortemente ondulado, predominam solos com a sequência de horizontes A ou A-Bi (Neossolos e Cambissolos).
+
+```{r echo=FALSE, out.width='100%'}
+knitr::include_graphics('../docs/figura1.png')
 ```
+Figura 1. Localização da área de estudo no município de Campo Belo do Sul, Estado de Santa Catarina (SC), Brasil (a) e área ampliada com modelo digital de elevação e distribuição dos pontos amostrais (b). Relação da classe de solo e altura das árvores de uma Topossequência típica da área de estudo (c).
 
-Importar dados
+
+**Amostragem**
+
+Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b) alocada na área de estudo pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote clhs. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL, TC e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
+
+Em cada ponto amostral foi medida da profundidade do solum (PS). Para mensurar as variáveis dendrométricas diâmetro a altura do peito (DAP) e altura total da árvore (h) consideramos os quatro indivíduos de $Pinus taeda$ mais próximos de cada ponto amostral. A média de altura e DAP das quatro árvores foram utilizadas para representar cada ponto. Assim sendo, cada ponto de amostragem representa uma área (bloco) de aproximadamente 10 x 10 metros no campo.
+
+Considerou-se solum à espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
 
 ```{r}
 #Importar pontos
+pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
 
-pontos <- read.csv("D:/Projetos/soil-depth/data/GateadosDados.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
-View(pontos)
-
-```
-
-```{r}
 #transformar coord dos pontos
 sp :: coordinates(pontos) <- c('X' , 'Y')
-
 sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
-
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
-#mapview(pontos)
+
+pontos@data
+
 ```
 
 Análise da estrutura dos dados
 
 ```{r}
-str(pontos)
-plot(Y ~ X, pontos)
-barplot(pontos$PFd)
 summary(pontos)
 
 #normalidade profundidade
 stats::shapiro.test(pontos$PFd)
-
 hist(pontos$PFd)
-
 pontos$boxcoxpfd <- fifer::boxcoxR(pontos$PFd) %>% unlist()
 
 #normalidade altura
@@ -85,16 +70,6 @@ hist(pontos$h)
 ```
 
 ```{r fig.asp=1}
-nf <- layout(matrix(c(1,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
-
-# Draw the boxplot 
-par(mar=c(0, 5.1, 6, 2.1))
-  boxplot(pontos$PFd , horizontal=TRUE , xaxt="n", col="grey90" , frame=F)
-  box()
-  
-#Draw and the histogram 
-par(mar=c(5, 5.1, 0, 2.1))
-
 ##frequencia com linha normal
 ex <- hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
           xlim=c(1,10),  ylim=c(0,37),ylab="",main="") 
@@ -109,15 +84,6 @@ ex <- hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
 ```
 
 ```{r fig.asp=1}
-nf <- layout(matrix(c(2,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
-
-# Draw the boxplot 
-par(mar=c(0, 5.1, 6, 2.1))
-  boxplot(pontos$h , horizontal=TRUE , xaxt="n", col="grey90" , frame=F)
-  box()
-  
-#Draw and the histogram 
-par(mar=c(5, 5.1, 0, 2.1))
 
 ##frequencia com linha normal
 ex <- hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
@@ -134,25 +100,47 @@ ex <- hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
 ```
 
 
+O MDE disponibilizado gratuitamente pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para 10 m utilizando a ferramenta reamostragem no software SAGA GIS.
+
+A partir do MDE foram derivadas 12 variáveis topográficas utilizando a ferramenta $Tarrain Analyses$ do software SAGA GIS.
+
+```{r}
+#Importar covars
+ASP <- raster("../data/Covars/ASP.tif")
+CNBL <- raster("../data/Covars/CNBL.tif")
+DECLI <- raster("../data/Covars/DECLI.tif")
+ELEV <- raster("../data/Covars/ELEV.tif")
+LS <- raster("../data/Covars/LS.tif")
+PLC <- raster("../data/Covars/PLC.tif")
+RSP <- raster("../data/Covars/RSP.tif")
+TPI <- raster("../data/Covars/TPI.tif")
+TRI <- raster("../data/Covars/TRI.tif")
+TWI <- raster("../data/Covars/TWI.tif")
+VD <- raster("../data/Covars/VD.tif")
+VDCN <- raster("../data/Covars/VDCN.tif")
+RFPF <- raster("../data/Covars/predictionPF.tif")
+```
+
+
+Amostragem
+
 Importar limite da área
 
 ```{r}
 #Importar shape da área (contorno)
 pistola <- 
- raster::shapefile('D:/Projetos/soil-depth/data/contorno/limite_projeto.shp',
+ raster::shapefile('../data/contorno/limite_projeto.shp',
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
- sp::spTransform(wgs84utm22s)
+sp::spTransform(wgs84utm22s)
 
 #mapview(pistola)
 ```
-
-Importar covariáveis
 
 ```{r}
 #Importar shape da produtividade do projeto pistola e transformar as coordenadas
 #shape no pacote raster pela função shapefile
 ProdutividadePistola <- 
- raster::shapefile('D:/Projetos/soil-depth/data/Produtividade/ProdutividadePistola.shp',
+ raster::shapefile('../data/Produtividade/ProdutividadePistola.shp',
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
  sp::spTransform(wgs84utm22s)
 
@@ -160,35 +148,6 @@ sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa de ind
 
 #mapview(ProdutividadePistola)
 ```
-
-```{r}
-#Importar covars
-ASP <- raster("D:/Projetos/soil-depth/data/Covars/ASP.tif")
-CNBL <- raster("D:/Projetos/soil-depth/data/Covars/CNBL.tif")
-DDR <- raster("D:/Projetos/soil-depth/data/Covars/DDR.tif")
-DECLI <- raster("D:/Projetos/soil-depth/data/Covars/DECLI.tif")
-DFI <- raster("D:/Projetos/soil-depth/data/Covars/DFI.tif")
-DUI <- raster("D:/Projetos/soil-depth/data/Covars/DUI.tif")
-ELEV <- raster("D:/Projetos/soil-depth/data/Covars/ELEV.tif")
-LC <- raster("D:/Projetos/soil-depth/data/Covars/LC.tif")
-LS <- raster("D:/Projetos/soil-depth/data/Covars/LS.tif")
-MC <- raster("D:/Projetos/soil-depth/data/Covars/MC.tif")
-PLC <- raster("D:/Projetos/soil-depth/data/Covars/PLC.tif")
-RSP <- raster("D:/Projetos/soil-depth/data/Covars/RSP.tif")
-TI <- raster("D:/Projetos/soil-depth/data/Covars/TI.tif")
-TPI <- raster("D:/Projetos/soil-depth/data/Covars/TPI.tif")
-TRI <- raster("D:/Projetos/soil-depth/data/Covars/TRI.tif")
-TWI <- raster("D:/Projetos/soil-depth/data/Covars/TWI.tif")
-VD <- raster("D:/Projetos/soil-depth/data/Covars/VD.tif")
-VDCN <- raster("D:/Projetos/soil-depth/data/Covars/VDCN.tif")
-RFPF <- raster("D:/Projetos/soil-depth/data/Covars/predictionPF.tif")
-```
-
-```{r}
-sp::spplot(RFPF, scales = list(draw = TRUE))
-```
-
-Amostragem
 
 ```{r}
 #Extrair as covar (X e Y = nome das colunas)
@@ -229,7 +188,7 @@ pontos$Sitio <- as.factor(pontos@data$Sitio)
 ```
 
 ```{r}
-#covar <- read.csv("D:/Projetos/soil-depth/data/GateadosCovar.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
+#covar <- read.csv("../data/GateadosCovar.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
 
 #transformar coord dos pontos
 #sp :: coordinates(covar) <- c('X' , 'Y')
@@ -260,7 +219,6 @@ latticeExtra::as.layer()
 Análise exploratória dos pontos
 
 ```{r}
-
 as.formula(paste("PFd~",paste(names(pontos)[c(11:30)], collapse="+"), collapse=""))
 
 lm_fit <- lm(boxcoxpfd ~ Sitio + LS + TWI + VD + CNBL + ELEV + DECLI + ASP + VDCN, pontos)
@@ -309,6 +267,9 @@ sp::spplot(grid, 'rf')
 
 ```
 
+```{r}
+sp::spplot(RFPF, scales = list(draw = TRUE))
+```
 
 Parte I - Profundidade do solo
 
@@ -372,7 +333,6 @@ sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
 sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
 ```
 
-
 ```{r DesvP}
 #Passar para desvio padrão CUIDADO PARA NÃO FAZER DUAS VEZES
 mapa_exp$var1.var <- sqrt(mapa_exp$var1.var)
@@ -425,6 +385,59 @@ lines(reml_fit)
 ```
 
 ```{r}
+#Mapa com valores preditos
+mapa_exp <- gstat::krige(PFd ~ 1, pontos, grid, m_exp, debug.level = 1)
+sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
 
+
+sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
+```
+
+```{r}
+#código de predição via georob... não lembro, mas acho que não tem a espacialização aí
+
+grid <- sp::spsample(dnos_in, 10000, type = 'regular')
+
+```
+
+
+
+
+
+#luciano
+
+```{r}
+
+colnames(grid@coords) <- colnames(dnos_in@coords)
+pred_ponto <- predict(
+  reml_fit, newdata = grid, type = 'signal', signif = 0.95,
+  control = georob::control.predict.georob(extended.output = TRUE))
+sp::gridded(pred_ponto) <- TRUE
+str(pred_ponto)
+```
+
+```{r}
+at <- pred_ponto@data[, c("pred", "lower", "upper")] %>% range()
+at <- seq(at[1], at[2], length.out = 20)
+sp::spplot(pred_ponto, zcol = c("lower", "pred", "upper"), at = at, main = "prediction")
+```
+
+```{r}
+sp::spplot(pred_ponto, zcol = 'se')
+```
+
+Validação cruzada do modelo utilizando apenas krigagem ordinária.
+
+```{r}
+validacao <- georob::cv(reml_fit, nset = 375)
+summary(validacao)
+```
+
+```{r}
+1 - sum((validacao$pred$data - validacao$pred$pred)^2) / 
+  sum((validacao$pred$data - mean(validacao$pred$data))^2)
+
+plot(validacao)
+```
 ```
 
