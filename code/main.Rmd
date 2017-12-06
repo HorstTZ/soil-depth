@@ -57,7 +57,7 @@ sp :: coordinates(pontos) <- c('X' , 'Y')
 sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
 
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
-mapview(pontos)
+#mapview(pontos)
 ```
 
 Análise da estrutura dos dados
@@ -108,7 +108,7 @@ ex <- hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
 ```
 
 ```{r fig.asp=1}
-nf <- layout(matrix(c(1,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
+nf <- layout(matrix(c(2,2),2,1,byrow = TRUE), c(2,1), c(1,2), TRUE)
 
 # Draw the boxplot 
 par(mar=c(0, 5.1, 6, 2.1))
@@ -133,7 +133,7 @@ ex <- hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
 ```
 
 
-Importar covariáveis
+Importar limite da área
 
 ```{r}
 #Importar shape da área (contorno)
@@ -142,8 +142,10 @@ pistola <-
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
  sp::spTransform(wgs84utm22s)
 
-mapview(pistola)
+#mapview(pistola)
 ```
+
+Importar covariáveis
 
 ```{r}
 #Importar shape da produtividade do projeto pistola e transformar as coordenadas
@@ -153,19 +155,67 @@ ProdutividadePistola <-
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
  sp::spTransform(wgs84utm22s)
 
-sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa Sítio")
+sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa de indices de Sítio")
 
 #mapview(ProdutividadePistola)
+```
 
+```{r}
+#Importar covars
+ASP <- raster("D:/Projetos/soil-depth/data/Covars/ASP.tif")
+CNBL <- raster("D:/Projetos/soil-depth/data/Covars/CNBL.tif")
+DDR <- raster("D:/Projetos/soil-depth/data/Covars/DDR.tif")
+DECLI <- raster("D:/Projetos/soil-depth/data/Covars/DECLI.tif")
+DFI <- raster("D:/Projetos/soil-depth/data/Covars/DFI.tif")
+DUI <- raster("D:/Projetos/soil-depth/data/Covars/DUI.tif")
+ELEV <- raster("D:/Projetos/soil-depth/data/Covars/ELEV.tif")
+LC <- raster("D:/Projetos/soil-depth/data/Covars/LC.tif")
+LS <- raster("D:/Projetos/soil-depth/data/Covars/LS.tif")
+MC <- raster("D:/Projetos/soil-depth/data/Covars/MC.tif")
+PLC <- raster("D:/Projetos/soil-depth/data/Covars/PLC.tif")
+RSP <- raster("D:/Projetos/soil-depth/data/Covars/RSP.tif")
+TI <- raster("D:/Projetos/soil-depth/data/Covars/TI.tif")
+TPI <- raster("D:/Projetos/soil-depth/data/Covars/TPI.tif")
+TRI <- raster("D:/Projetos/soil-depth/data/Covars/TRI.tif")
+TWI <- raster("D:/Projetos/soil-depth/data/Covars/TWI.tif")
+VD <- raster("D:/Projetos/soil-depth/data/Covars/VD.tif")
+VDCN <- raster("D:/Projetos/soil-depth/data/Covars/VDCN.tif")
+```
 
+```{r}
+sp::spplot(ASP, scales = list(draw = TRUE))
 ```
 
 Amostragem
 
 ```{r}
-#Amostragem
+#Extrair as covar (X e Y = nome das colunas)
 
-#Criar coluna Sitio no conjunto dados e amostrar o shape ProdutividadePistola nos 102 pontos
+
+pontos$ASP <- extract(ASP, data = pontos[, c("X", "Y")])
+pontos$CNBL <- extract(CNBL, pontos[, c("X", "Y")])
+pontos$DDR <- extract(DDR, pontos[, c("X", "Y")])
+pontos$DECLI <- extract(DECLI, pontos[, c("X", "Y")])
+pontos$DFI <- extract(DFI, pontos[, c("X", "Y")])
+pontos$DUI <- extract(DUI, pontos[, c("X", "Y")])
+pontos$ELEV <- extract(ELEV, pontos[, c("X", "Y")])
+pontos$LC <- extract(LC, pontos[, c("X", "Y")])
+pontos$LS <- extract(LS, pontos[, c("X", "Y")])
+pontos$MC <- extract(MC, pontos[, c("X", "Y")])
+pontos$PLC <- extract(PLC, pontos[, c("X", "Y")])
+pontos$RSP <- extract(RSP, pontos[, c("X", "Y")])
+pontos$TI <- extract(TI, pontos[, c("X", "Y")])
+pontos$TPI <- extract(TPI, pontos[, c("X", "Y")])
+pontos$TRI <- extract(TRI, pontos[, c("X", "Y")])
+pontos$TWI <- extract(TWI, pontos[, c("X", "Y")])
+pontos$VD <- extract(VD, pontos[, c("X", "Y")])
+pontos$VDCN <- extract(VDCN, pontos[, c("X", "Y")])
+
+str(pontos)
+```
+
+```{r}
+#Amostragem do sitio
 pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola) %>% unlist()
 str(pontos)
 pontos@data
@@ -176,24 +226,23 @@ pontos$Sitio <- as.factor(pontos@data$Sitio)
 str(pontos)
 ```
 
-
 ```{r}
-covar <- read.csv("D:/Projetos/soil-depth/data/GateadosCovar.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
+#covar <- read.csv("D:/Projetos/soil-depth/data/GateadosCovar.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
 
 #transformar coord dos pontos
-sp :: coordinates(covar) <- c('X' , 'Y')
-sp :: proj4string(covar) <- wgs84utm22s #coordenada referencia
+#sp :: coordinates(covar) <- c('X' , 'Y')
+#sp :: proj4string(covar) <- wgs84utm22s #coordenada referencia
 
-covar <- sp :: spTransform(covar, wgs84utm22s) #transforma coordenada para wgs84
+#covar <- sp :: spTransform(covar, wgs84utm22s) #transforma coordenada para wgs84
 #mapview(covar)
 ```
 
 ```{r}
-dados <- 
-  merge(pontos, covar, by.x = ID, by.y = ID)
+#pontos <- 
+ # merge(pontos, covar, by.x = ID, by.y = ID)
 
-dados@data
-str(dados)
+#pontos@data
+#str(pontos)
 ```
 
 ```{r}
@@ -201,23 +250,22 @@ str(dados)
 sp::spplot(
   ProdutividadePistola, scales = list(draw = T),
   main = 'Localização dos pontos') +
-  lattice::xyplot(Y ~ X, data = as.data.frame(dados@coords),
+  lattice::xyplot(Y ~ X, data = as.data.frame(pontos@coords),
                   pch = 20, col = 'red', lwd = 2, cex = 1.5) %>%
 latticeExtra::as.layer()
 ```
 
-
-Análise exploratória dos dados
+Análise exploratória dos pontos
 
 ```{r}
 
-as.formula(paste("boxcoxpfd~",paste(names(dados)[c(11:30)], collapse="+"), collapse=""))
+as.formula(paste("boxcoxpfd~",paste(names(pontos)[c(11:30)], collapse="+"), collapse=""))
 
 
-lm_fit <- lm(boxcoxpfd ~ Sitio + LS + TWI + VD + CNBL + ELEV + DECLI + ASP + VDCN, dados)
+lm_fit <- lm(boxcoxpfd ~ Sitio + LS + TWI + VD + CNBL + ELEV + DECLI + ASP + VDCN, pontos)
 
 summary(lm_fit)
-dados@data
+pontos@data
 ```
 
 ```{r}
@@ -225,7 +273,6 @@ op <- par(mfrow = c(2, 2))
 plot(lm_fit, which = 1:4, cex = 1.5, lwd = 1.5)
 par(op)
 ```
-
 
 Predição por rf
 
@@ -235,40 +282,30 @@ caret::modelLookup('rf')
 ```
 
 ```{r}
-rf_fit <- train(PFd ~ DECLI, as.data.frame(dados), method = "rf", ntree = 1000, mtry = 2 )
-rf_fit
-```
-
-```{r}
 #Random Forest
 
-form <- as.formula(paste("PFd~", paste(names(dados)[c(12:30)], collapse="+"), collapse=""))
-rf_fit <- train(form = form, data = dados@data,
+form <- as.formula(paste("PFd~", paste(names(pontos)[c(13:30)], collapse="+"), collapse=""))
+
+
+rf_fit <- train(form = form, data = pontos@data,
   method = "rf", tuneLength = 1, importance = TRUE, trControl = trainControl("LOOCV"))
 ```
 
 ```{r}
-dados@data$rf <- rf_fit$finalModel$predicted
-lm(PFd ~ rf, dados@data) %>% plot()
+pontos@data$rf <- rf_fit$finalModel$predicted
+lm(PFd ~ rf, pontos@data) %>% plot()
 ```
 
 ```{r}
 grid <- sp::spsample(pistola, 10000, type = 'regular')
-mapview(grid)
-
-grid <- 
-  sp::SpatialPointsDataFrame(
-    coords = grid@coords, 
-    data = data.frame(dados@data),
-    proj4string = grid@proj4string)
-colnames(grid@coords) <- colnames(dados@coords)
+plot(grid@coords, asp = 1)
 ```
 
 ```{r}
 grid$rf <- raster::predict(rf_fit, grid)
-spplot(grid, 'rf')
-```
+sp::spplot(grid, 'rf')
 
+```
 
 
 Parte I - Profundidade do solo
@@ -281,6 +318,59 @@ Erro de medida
 Modelo linear misto de variação espacial (georob)
 - Efeitos fixos: floresta aleatória
 Predição espacial: suporte de blocos: 10x10 m e por talhão
+
+
+```{r Variogram, fig.asp=1, fig.width=7, fig.height=7}
+
+#limites <- seq(0, 2500, length.out=10)
+variograma <- gstat::variogram(PFd ~ 1, pontos)#, boundaries = limites)
+plot(variograma, ylab = "Semivariância", xlab = "Distância (m)", pch = 20, cex = 1.5, plot.numbers = TRUE) #plot.numbers (pares de pontos)
+
+lags <- seq(0, 1500, length.out = 15)
+georob::sample.variogram(
+  PFd ~ rf, data = pontos, locations = ~ X + Y, lag.dist.def = lags,
+  xy.angle.def = c(0, 22.5, 67.5, 112.5, 157.5, 180)) %>% 
+  plot(type = "b")
+
+```
+
+```{r AjusteVar, fig.asp=1}
+#Depois, precisamos encontrar uma função do semivariograma/de covariãncia que descrevam esse comportamento dos pontos:
+# exponencial
+# gaussiana
+#efeito pepita puro ou puro ruido
+
+#definir parametros iniciais
+m_exp <- gstat::vgm(psill = 13 - 7, model = 'Exp', range = 15, nugget = 5)
+m_exp <- gstat::fit.variogram(variograma, m_exp)
+
+#criar espaço para figura
+plot(variograma, m_exp, col.line = 'red', xlab = 'Distância (m)', ylab = 'Semivariância')
+
+```
+
+```{r PredictionKrige}
+
+#Criar o grid
+grid <- sp::spsample(pistola, 10000, type = 'regular')
+plot(grid@coords, asp = 1)
+
+
+#Mapa com valores preditos
+mapa_exp <- gstat::krige(PF ~ 1, pontos, grid, m_exp, debug.level = 1)
+sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
+
+
+sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
+
+```
+
+```{r DesvP}
+#Passar para desvio padrão CUIDADO PARA NÃO FAZER DUAS VEZES
+mapa_exp$var1.var <- sqrt(mapa_exp$var1.var)
+
+sp::spplot(mapa_exp, 2, col.regions = col_soil_var)
+```
 
 
 
