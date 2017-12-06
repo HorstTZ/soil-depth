@@ -54,6 +54,7 @@ View(pontos)
 ```{r}
 #transformar coord dos pontos
 sp :: coordinates(pontos) <- c('X' , 'Y')
+
 sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
 
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
@@ -180,10 +181,11 @@ TRI <- raster("D:/Projetos/soil-depth/data/Covars/TRI.tif")
 TWI <- raster("D:/Projetos/soil-depth/data/Covars/TWI.tif")
 VD <- raster("D:/Projetos/soil-depth/data/Covars/VD.tif")
 VDCN <- raster("D:/Projetos/soil-depth/data/Covars/VDCN.tif")
+RFPF <- raster("D:/Projetos/soil-depth/data/Covars/predictionPF.tif")
 ```
 
 ```{r}
-sp::spplot(ASP, scales = list(draw = TRUE))
+sp::spplot(RFPF, scales = list(draw = TRUE))
 ```
 
 Amostragem
@@ -191,8 +193,7 @@ Amostragem
 ```{r}
 #Extrair as covar (X e Y = nome das colunas)
 
-
-pontos$ASP <- extract(ASP, data = pontos[, c("X", "Y")])
+pontos$ASP <- extract(ASP,  pontos[, c("X", "Y")])
 pontos$CNBL <- extract(CNBL, pontos[, c("X", "Y")])
 pontos$DDR <- extract(DDR, pontos[, c("X", "Y")])
 pontos$DECLI <- extract(DECLI, pontos[, c("X", "Y")])
@@ -210,6 +211,7 @@ pontos$TRI <- extract(TRI, pontos[, c("X", "Y")])
 pontos$TWI <- extract(TWI, pontos[, c("X", "Y")])
 pontos$VD <- extract(VD, pontos[, c("X", "Y")])
 pontos$VDCN <- extract(VDCN, pontos[, c("X", "Y")])
+pontos$RFPF <- extract(RFPF, pontos[, c("X", "Y")])
 
 str(pontos)
 ```
@@ -217,13 +219,13 @@ str(pontos)
 ```{r}
 #Amostragem do sitio
 pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola) %>% unlist()
-str(pontos)
+#str(pontos)
 pontos@data
 ```
 
 ```{r}
 pontos$Sitio <- as.factor(pontos@data$Sitio)
-str(pontos)
+#str(pontos)
 ```
 
 ```{r}
@@ -239,7 +241,7 @@ str(pontos)
 
 ```{r}
 #pontos <- 
- # merge(pontos, covar, by.x = ID, by.y = ID)
+# merge(pontos, covar, by.x = ID, by.y = ID)
 
 #pontos@data
 #str(pontos)
@@ -259,13 +261,12 @@ Análise exploratória dos pontos
 
 ```{r}
 
-as.formula(paste("boxcoxpfd~",paste(names(pontos)[c(11:30)], collapse="+"), collapse=""))
-
+as.formula(paste("PFd~",paste(names(pontos)[c(11:30)], collapse="+"), collapse=""))
 
 lm_fit <- lm(boxcoxpfd ~ Sitio + LS + TWI + VD + CNBL + ELEV + DECLI + ASP + VDCN, pontos)
 
 summary(lm_fit)
-pontos@data
+#pontos@data
 ```
 
 ```{r}
@@ -286,9 +287,10 @@ caret::modelLookup('rf')
 
 form <- as.formula(paste("PFd~", paste(names(pontos)[c(13:30)], collapse="+"), collapse=""))
 
-
 rf_fit <- train(form = form, data = pontos@data,
   method = "rf", tuneLength = 1, importance = TRUE, trControl = trainControl("LOOCV"))
+
+rf_fit
 ```
 
 ```{r}
@@ -315,24 +317,27 @@ Validação: validação cruzada (leave-one-out)
 Covariáveis: atributos de terreno com resolução espacial de 10 m + sítios (4 classes)
 Suporte amostral de blocos (10 x 10 m)
 Erro de medida
-Modelo linear misto de variação espacial (georob)
-- Efeitos fixos: floresta aleatória
-Predição espacial: suporte de blocos: 10x10 m e por talhão
+
+
+Krigagem ordinária pelo gstat:
 
 
 ```{r Variogram, fig.asp=1, fig.width=7, fig.height=7}
 
-#limites <- seq(0, 2500, length.out=10)
 variograma <- gstat::variogram(PFd ~ 1, pontos)#, boundaries = limites)
-plot(variograma, ylab = "Semivariância", xlab = "Distância (m)", pch = 20, cex = 1.5, plot.numbers = TRUE) #plot.numbers (pares de pontos)
+plot(variograma, ylab = "Semivariância", xlab = "Distância (m)", pch = 20, cex = 1.5, plot.numbers = TRUE) #o parâmetro plot.numbers plota o número de pares de pontos)
+```
 
-lags <- seq(0, 1500, length.out = 15)
+```{r}
+lags <- seq(0, 2500, length.out = 15)
 georob::sample.variogram(
-  PFd ~ rf, data = pontos, locations = ~ X + Y, lag.dist.def = lags,
+  PFd ~ 1, data = pontos, locations = ~ X + Y, lag.dist.def = lags,
   xy.angle.def = c(0, 22.5, 67.5, 112.5, 157.5, 180)) %>% 
   plot(type = "b")
-
 ```
+
+Avaliada a evolução da semivariância nas diferentes direções, há evidência clara da existência de estruturas de autocorrelação espacial dependentes da direção.
+O processo espacial é anisotrópico?
 
 ```{r AjusteVar, fig.asp=1}
 #Depois, precisamos encontrar uma função do semivariograma/de covariãncia que descrevam esse comportamento dos pontos:
@@ -349,21 +354,24 @@ plot(variograma, m_exp, col.line = 'red', xlab = 'Distância (m)', ylab = 'Semiv
 
 ```
 
-```{r PredictionKrige}
+
+```{r}
 
 #Criar o grid
 grid <- sp::spsample(pistola, 10000, type = 'regular')
 plot(grid@coords, asp = 1)
 
+```
 
+```{r}
 #Mapa com valores preditos
-mapa_exp <- gstat::krige(PF ~ 1, pontos, grid, m_exp, debug.level = 1)
+mapa_exp <- gstat::krige(PFd ~ 1, pontos, grid, m_exp, debug.level = 1)
 sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
 
 
 sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
-
 ```
+
 
 ```{r DesvP}
 #Passar para desvio padrão CUIDADO PARA NÃO FAZER DUAS VEZES
@@ -373,4 +381,50 @@ sp::spplot(mapa_exp, 2, col.regions = col_soil_var)
 ```
 
 
+Krigagem  pelo georob
+
+Modelo linear misto de variação espacial (georob)
+
+Segundo esse modelo, os dados geoestatísticos são uma realização de um campo aleatório que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
+
+- Efeitos fixos: floresta aleatória
+Predição espacial: suporte de blocos: 10x10 m e por talhão
+
+
+```{r fig.asp=1}
+limites <- seq(0, 3000,length.out = 35)
+
+vario<- georob::sample.variogram(PFd ~ RFPF + DECLI + VDCN,
+    data= pontos, locations = ~ X + Y, lag.dist.def = limites) %>%
+  plot()
+
+
+#definir parametros iniciais
+#m_exp <- gstat::vgm(psill = 13 - 7, model = 'Exp', range = 15, nugget = 5)
+#m_exp <- gstat::fit.variogram(variograma, m_exp)
+
+#criar espaço para figura
+#plot(variograma, m_exp, col.line = 'red', xlab = 'Distância (m)', ylab = 'Semivariância')
+
+```
+
+```{r fig.asp=1}
+#krigagem universal
+
+reml_fit <- georob::georob(
+  PFd ~ RFPF + DECLI + VDCN, data = pontos, locations = ~ X + Y, 
+  variogram.model = 'RMexp', 
+  param = c(variance = 4000, 
+            nugget = 1000, 
+            scale = 300),
+  tuning.psi = 1000)
+
+
+plot(vario)
+lines(reml_fit)
+```
+
+```{r}
+
+```
 
