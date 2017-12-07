@@ -55,7 +55,7 @@ Figura 1. Localização da área de estudo no município de Campo Belo do Sul, E
 
 **Amostragem**
 
-Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b). Os pontos foram alocados pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote clhs. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
+Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b). Os pontos foram alocados pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote **clhs**. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
 Em cada ponto amostral medimos a profundidade do solum (PF) e a altura das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
 Para representar h utilizamos o valor médio dos quatro indivíduos de $Pinus taeda$ mais próximos de cada ponto amostral foram mensurados. Portanto, cada ponto de amostragem representa uma área (bloco) de aproximadamente 10 x 10 metros no campo.
@@ -194,7 +194,7 @@ ProdutividadePistola <-
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
  sp::spTransform(wgs84utm22s)
 
-sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa de indices de Sítio")
+sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa de índices de Sítio")
 
 #mapview(ProdutividadePistola)
 ```
@@ -359,19 +359,17 @@ Predição espacial: suporte de blocos: 10x10 m e por talhão
 ```{r fig.asp=1}
 limites <- seq(0, 3000,length.out = 35)
 
-vario<- georob::sample.variogram(PFd ~ RFPF + DECLI + VDCN,
+vario<- georob::sample.variogram(PFd ~ RFPF,
     data= pontos, locations = ~ X + Y, lag.dist.def = limites) %>%
   plot()
 
-
-#definir parametros iniciais
-#m_exp <- gstat::vgm(psill = 13 - 7, model = 'Exp', range = 15, nugget = 5)
-#m_exp <- gstat::fit.variogram(variograma, m_exp)
-
-#criar espaço para figura
-#plot(variograma, m_exp, col.line = 'red', xlab = 'Distância (m)', ylab = 'Semivariância')
-
 ```
+
+
+
+
+
+
 
 ```{r fig.asp=1}
 #krigagem universal
@@ -379,9 +377,9 @@ vario<- georob::sample.variogram(PFd ~ RFPF + DECLI + VDCN,
 reml_fit <- georob::georob(
   PFd ~ RFPF + DECLI + VDCN, data = pontos, locations = ~ X + Y, 
   variogram.model = 'RMexp', 
-  param = c(variance = 4000, 
-            nugget = 1000, 
-            scale = 300),
+  param = c(variance = 10, 
+            nugget = 5, 
+            scale = 15),
   tuning.psi = 1000)
 
 
@@ -391,7 +389,7 @@ lines(reml_fit)
 
 ```{r}
 #Mapa com valores preditos
-mapa_exp <- gstat::krige(PFd ~ 1, pontos, grid, m_exp, debug.level = 1)
+mapa_exp <- gstat::krige(PFd ~ RFPF + DECLI + VDCN, pontos, grid, m_exp, debug.level = 1)
 sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
 
 
