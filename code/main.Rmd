@@ -18,11 +18,33 @@ rmarkdown::render('main.Rmd', encoding = 'UTF-8', output_dir = "../docs")
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Caracterização da área dos dados
+```{r}
+# Carregar os Pacotes
+library(magrittr)
+library(dplyr)
+library(glue)
+library(lattice)
+library(latticeExtra)
+library(georob)
+library(sp)
+library(mapview)
+library(raster)
+library(rmarkdown)
 
-Os dados utilizados para este trabalho são provenientes de um povoamento florestal de 108 ha de $Pinus taeda$ L. de 29 anos. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima na área é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
+# Sistemas de referência de coordenadas (Fonte: http://spatialreference.org/ref/epsg/)
+wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
+sirgas2000 <- sp::CRS('+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs')
 
-Na área de estudo identificamos Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Háplicos e Húmicos, Latossolos Vermelhos e Gleissolos Melânicos, as quais representam a topossequência clássica da área de estudo (Figura 1c). Conforme as tendências observadas, em locais de relevo plano ou suavemente ondulado com boa drenagem, estão solos profundos com sequência de horizontes A-Bw (Latossolos), em condições de má drenagem, ocorrem solos com a sequência de horizonte A-Cg (Gleissolos). Nos relevos ondulado ou fortemente ondulado, predominam solos com a sequência de horizontes A ou A-Bi (Neossolos e Cambissolos).
+# Rampas de cores
+col_soil_var <- topo.colors(100)
+```
+
+
+Caracterização dos dados
+
+Os dados utilizados para este trabalho são provenientes de um povoamento florestal de 108 ha de $Pinus taeda$ L. de 29 anos. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
+
+Na área de estudo identificamos Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Háplicos e Cambissolos Húmicos, Latossolos Vermelhos e Gleissolos Melânicos, os quais representam a topossequência clássica da área de estudo (Figura 1c). Conforme as tendências observadas, em locais de relevo plano ou suavemente ondulado com boa drenagem, estão solos profundos com sequência de horizontes A-Bw (Latossolos), em condições de má drenagem, ocorrem solos com a sequência de horizonte A-Cg (Gleissolos). Nos relevos ondulado ou fortemente ondulado, predominam solos rasos com a sequência de horizontes A ou A-Bi (Neossolos e Cambissolos).
 
 ```{r echo=FALSE, out.width='100%'}
 knitr::include_graphics('../docs/figura1.png')
@@ -32,11 +54,10 @@ Figura 1. Localização da área de estudo no município de Campo Belo do Sul, E
 
 **Amostragem**
 
-Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b) alocada na área de estudo pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote clhs. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL, TC e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
+Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b). Os pontos foram alocados pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote clhs. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
-Em cada ponto amostral foi medida da profundidade do solum (PS). Para mensurar as variáveis dendrométricas diâmetro a altura do peito (DAP) e altura total da árvore (h) consideramos os quatro indivíduos de $Pinus taeda$ mais próximos de cada ponto amostral. A média de altura e DAP das quatro árvores foram utilizadas para representar cada ponto. Assim sendo, cada ponto de amostragem representa uma área (bloco) de aproximadamente 10 x 10 metros no campo.
-
-Considerou-se solum à espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
+Em cada ponto amostral medimos a profundidade do solum (PF) e a altura das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
+Para representar h utilizamos o valor médio dos quatro indivíduos de $Pinus taeda$ mais próximos de cada ponto amostral foram mensurados. Portanto, cada ponto de amostragem representa uma área (bloco) de aproximadamente 10 x 10 metros no campo.
 
 ```{r}
 #Importar pontos
@@ -100,7 +121,7 @@ ex <- hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
 ```
 
 
-O MDE disponibilizado gratuitamente pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para 10 m utilizando a ferramenta reamostragem no software SAGA GIS.
+Utilizamos o MDE disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para 10 m utilizando a ferramenta $reamostragem$ no software SAGA GIS.
 
 A partir do MDE foram derivadas 12 variáveis topográficas utilizando a ferramenta $Tarrain Analyses$ do software SAGA GIS.
 
@@ -122,9 +143,37 @@ RFPF <- raster("../data/Covars/predictionPF.tif")
 ```
 
 
-Amostragem
+```{r}
+#Extrair as covar (X e Y = nome das colunas)
 
-Importar limite da área
+pontos@data
+
+pontos$ASP <- extract(ASP,  pontos[, c("X", "Y")])
+pontos$CNBL <- extract(CNBL, pontos[, c("X", "Y")])
+pontos$DECLI <- extract(DECLI, pontos[, c("X", "Y")])
+pontos$ELEV <- extract(ELEV, pontos[, c("X", "Y")])
+pontos$LS <- extract(LS, pontos[, c("X", "Y")])
+pontos$PLC <- extract(PLC, pontos[, c("X", "Y")])
+pontos$RSP <- extract(RSP, pontos[, c("X", "Y")])
+pontos$TPI <- extract(TPI, pontos[, c("X", "Y")])
+pontos$TRI <- extract(TRI, pontos[, c("X", "Y")])
+pontos$TWI <- extract(TWI, pontos[, c("X", "Y")])
+pontos$VD <- extract(VD, pontos[, c("X", "Y")])
+pontos$VDCN <- extract(VDCN, pontos[, c("X", "Y")])
+pontos$RFPF <- extract(RFPF, pontos[, c("X", "Y")])
+
+str(pontos)
+```
+
+Dos 108 ha, 73 são de área plantada. Para fins de ordenamento de produção, a área em questão possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados, classificados conforme a produtividade em níveis 1, 2, 3 e 4, sendo 1 o sítio com melhor produtividade e 4 de pior produtividade (Figura 2).
+
+```{r echo=FALSE, out.width='100%'}
+knitr::include_graphics('../docs/figura2.png')
+```
+Figura 2 - Área de estudo, com indicação da área produtiva e parcelas de inventário contínuo contento os índices de sítio e respectivos valores de altura dominante
+
+
+Os níveis de produtividade foram atribuidos aos polígonos e, nos polígonos que não possuem PIC, o valor de sítio foi estimado com base na altura das árvores amostradas á campo e das PCIs vizinhas.
 
 ```{r}
 #Importar shape da área (contorno)
@@ -150,32 +199,6 @@ sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa de ind
 ```
 
 ```{r}
-#Extrair as covar (X e Y = nome das colunas)
-
-pontos$ASP <- extract(ASP,  pontos[, c("X", "Y")])
-pontos$CNBL <- extract(CNBL, pontos[, c("X", "Y")])
-pontos$DDR <- extract(DDR, pontos[, c("X", "Y")])
-pontos$DECLI <- extract(DECLI, pontos[, c("X", "Y")])
-pontos$DFI <- extract(DFI, pontos[, c("X", "Y")])
-pontos$DUI <- extract(DUI, pontos[, c("X", "Y")])
-pontos$ELEV <- extract(ELEV, pontos[, c("X", "Y")])
-pontos$LC <- extract(LC, pontos[, c("X", "Y")])
-pontos$LS <- extract(LS, pontos[, c("X", "Y")])
-pontos$MC <- extract(MC, pontos[, c("X", "Y")])
-pontos$PLC <- extract(PLC, pontos[, c("X", "Y")])
-pontos$RSP <- extract(RSP, pontos[, c("X", "Y")])
-pontos$TI <- extract(TI, pontos[, c("X", "Y")])
-pontos$TPI <- extract(TPI, pontos[, c("X", "Y")])
-pontos$TRI <- extract(TRI, pontos[, c("X", "Y")])
-pontos$TWI <- extract(TWI, pontos[, c("X", "Y")])
-pontos$VD <- extract(VD, pontos[, c("X", "Y")])
-pontos$VDCN <- extract(VDCN, pontos[, c("X", "Y")])
-pontos$RFPF <- extract(RFPF, pontos[, c("X", "Y")])
-
-str(pontos)
-```
-
-```{r}
 #Amostragem do sitio
 pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola) %>% unlist()
 #str(pontos)
@@ -184,25 +207,6 @@ pontos@data
 
 ```{r}
 pontos$Sitio <- as.factor(pontos@data$Sitio)
-#str(pontos)
-```
-
-```{r}
-#covar <- read.csv("../data/GateadosCovar.csv", dec = ".", sep= ";", stringsAsFactors = FALSE)
-
-#transformar coord dos pontos
-#sp :: coordinates(covar) <- c('X' , 'Y')
-#sp :: proj4string(covar) <- wgs84utm22s #coordenada referencia
-
-#covar <- sp :: spTransform(covar, wgs84utm22s) #transforma coordenada para wgs84
-#mapview(covar)
-```
-
-```{r}
-#pontos <- 
-# merge(pontos, covar, by.x = ID, by.y = ID)
-
-#pontos@data
 #str(pontos)
 ```
 
@@ -237,13 +241,13 @@ Predição por rf
 
 ```{r}
 caret::modelLookup('rf')
-
 ```
 
 ```{r}
 #Random Forest
 
 form <- as.formula(paste("PFd~", paste(names(pontos)[c(13:30)], collapse="+"), collapse=""))
+form
 
 rf_fit <- train(form = form, data = pontos@data,
   method = "rf", tuneLength = 1, importance = TRUE, trControl = trainControl("LOOCV"))
