@@ -262,7 +262,7 @@ sp::spplot(grid, 'rf')
 sp::spplot(RFPF, scales = list(draw = TRUE))
 ```
 
-Parte I - Profundidade do solo
+*Parte I - Profundidade do solo*
 
 n = 102 observações para calibração + predição + validação (108 ha)
 Validação: validação cruzada (leave-one-out)
@@ -271,7 +271,7 @@ Suporte amostral de blocos (10 x 10 m)
 Erro de medida
 
 
-Krigagem ordinária pelo gstat:
+**Krigagem ordinária pelo gstat:**
 
 
 ```{r Variogram, fig.asp=1, fig.width=7, fig.height=7}
@@ -338,7 +338,7 @@ sp::spplot(mapa_exp, 2, col.regions = col_soil_var)
 ```
 
 
-Krigagem  pelo georob
+**Krigagem  pelo georob**
 
 Modelo linear misto de variação espacial (georob)
 
