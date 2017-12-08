@@ -41,9 +41,9 @@ col_soil_var <- topo.colors(100)
 ```
 
 
-Caracterização dos dados
+*Caracterização dos dados*
 
-Os dados utilizados para este trabalho são provenientes de um povoamento florestal de 108 ha de $Pinus taeda$ L. de 29 anos. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
+Os dados que utilizei para este trabalho são provenientes de um povoamento florestal de 108 ha de $Pinus taeda$ L. de 29 anos. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
 
 Na área de estudo identificamos Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Háplicos e Cambissolos Húmicos, Latossolos Vermelhos e Gleissolos Melânicos, os quais representam a topossequência clássica da área de estudo (Figura 1c). Conforme as tendências observadas, em locais de relevo plano ou suavemente ondulado com boa drenagem, estão solos profundos com sequência de horizontes A-Bw (Latossolos), em condições de má drenagem, ocorrem solos com a sequência de horizonte A-Cg (Gleissolos). Nos relevos ondulado ou fortemente ondulado, predominam solos rasos com a sequência de horizontes A ou A-Bi (Neossolos e Cambissolos).
 
@@ -53,7 +53,7 @@ knitr::include_graphics('../docs/figura1.png')
 Figura 1. Localização da área de estudo no município de Campo Belo do Sul, Estado de Santa Catarina (SC), Brasil (a) e área ampliada com modelo digital de elevação e distribuição dos pontos amostrais (b). Relação da classe de solo e altura das árvores de uma Topossequência típica da área de estudo (c).
 
 
-**Amostragem**
+*Amostragem*
 
 Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b). Os pontos foram alocados pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote **clhs**. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
@@ -73,100 +73,97 @@ pontos@data
 
 ```
 
-Análise da estrutura dos dados
-
 ```{r}
-summary(pontos)
-
 #normalidade profundidade
 stats::shapiro.test(pontos$PFd)
-hist(pontos$PFd)
-pontos$boxcoxpfd <- fifer::boxcoxR(pontos$PFd) %>% unlist()
-
-#normalidade altura
-hist(pontos$boxcoxpfd)
+raster::hist(pontos$PFd)
 
 stats::shapiro.test(pontos$h)
-hist(pontos$h)
+graphics::hist(pontos$h)
 
 ```
 
-```{r fig.asp=1}
+PF bimodal
+h normal
+
+```{r}
+
+par(mfrow=c(1,2))
+
 ##frequencia com linha normal
-ex <- hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
-          xlim=c(1,10),  ylim=c(0,37),ylab="",main="") 
-    xfit<-seq(min(pontos$PFd),max(pontos$PFd), length=50) 
-    yfit<-dnorm(xfit,mean=mean(pontos$PFd),sd=sd(pontos$PFd))
+graphics::hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
+          xlim=c(1,10),  ylim=c(0,37),ylab="",main=" ") 
+    xfit<-base::seq(min(pontos$PFd),max(pontos$PFd), length=50) 
+    yfit<-stats::dnorm(xfit,mean=mean(pontos$PFd),sd=sd(pontos$PFd))
    yfit<-  yfit*diff(ex$mids[1:2])*length(pontos$PFd) 
     lines(xfit, yfit, col="red", lwd=2) 
     mtext("Frequência",line=2.6, side=2, cex=1) 
     mtext("PF (dm)",line=2.6, side=1, cex=1) 
-    rug((pontos$PFd), col="red")
+    graphics::rug((pontos$PFd), col="red")
      box()
-```
-
-```{r fig.asp=1}
 
 ##frequencia com linha normal
-ex <- hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
+graphics::hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
           xlim=c(23,38),  ylim=c(0,16),ylab="",main="") 
-    xfit<-seq(min(pontos$h),max(pontos$h), length=50) 
-    yfit<-dnorm(xfit,mean=mean(pontos$h),sd=sd(pontos$h))
+    xfit<-base::seq(min(pontos$h),max(pontos$h), length=50) 
+    yfit<-stats::dnorm(xfit,mean=mean(pontos$h),sd=sd(pontos$h))
    yfit<-  yfit*diff(ex$mids[1:2])*length(pontos$h) 
     lines(xfit, yfit, col="red", lwd=2) 
     mtext("Frequência",line=2.6, side=2, cex=1) 
     mtext("h (m)",line=2.6, side=1, cex=1) 
-    rug((pontos$h), col="red")
+    graphics::rug((pontos$h), col="red")
      box()
      
 ```
 
 
-Utilizamos o MDE disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para 10 m utilizando a ferramenta $reamostragem$ no software SAGA GIS.
+Utilizei o MDE disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para 10 m utilizando a ferramenta $reamostragem$ no software SAGA GIS.
 
 A partir do MDE foram derivadas 12 variáveis topográficas utilizando a ferramenta $Tarrain Analyses$ do software SAGA GIS.
 
 ```{r}
 #Importar covars
-ASP <- raster("../data/Covars/ASP.tif")
-CNBL <- raster("../data/Covars/CNBL.tif")
-DECLI <- raster("../data/Covars/DECLI.tif")
-ELEV <- raster("../data/Covars/ELEV.tif")
-LS <- raster("../data/Covars/LS.tif")
-PLC <- raster("../data/Covars/PLC.tif")
-RSP <- raster("../data/Covars/RSP.tif")
-TPI <- raster("../data/Covars/TPI.tif")
-TRI <- raster("../data/Covars/TRI.tif")
-TWI <- raster("../data/Covars/TWI.tif")
-VD <- raster("../data/Covars/VD.tif")
-VDCN <- raster("../data/Covars/VDCN.tif")
-RFPF <- raster("../data/Covars/predictionPF.tif")
+ASP <- raster::raster("../data/Covars/ASP.tif")
+CNBL <- raster::raster("../data/Covars/CNBL.tif")
+DECLI <- raster::raster("../data/Covars/DECLI.tif")
+ELEV <- raster::raster("../data/Covars/ELEV.tif")
+LS <- raster::raster("../data/Covars/LS.tif")
+PLC <- raster::raster("../data/Covars/PLC.tif")
+RSP <- raster::raster("../data/Covars/RSP.tif")
+TPI <- raster::raster("../data/Covars/TPI.tif")
+TRI <- raster::raster("../data/Covars/TRI.tif")
+TWI <- raster::raster("../data/Covars/TWI.tif")
+VD <- raster::raster("../data/Covars/VD.tif")
+VDCN <- raster::raster("../data/Covars/VDCN.tif")
+RFPF <- raster::raster("../data/Covars/predictionPF.tif")
 ```
 
 
 ```{r}
 #Extrair as covar (X e Y = nome das colunas)
 
-pontos@data
-
-pontos$ASP <- extract(ASP,  pontos)
-pontos$CNBL <- extract(CNBL, pontos)
-pontos$DECLI <- extract(DECLI, pontos)
-pontos$ELEV <- extract(ELEV, pontos)
-pontos$LS <- extract(LS, pontos)
-pontos$PLC <- extract(PLC, pontos)
-pontos$RSP <- extract(RSP, pontos)
-pontos$TPI <- extract(TPI, pontos)
-pontos$TRI <- extract(TRI, pontos)
-pontos$TWI <- extract(TWI, pontos)
-pontos$VD <- extract(VD, pontos)
-pontos$VDCN <- extract(VDCN, pontos)
-pontos$RFPF <- extract(RFPF, pontos)
-
-str(pontos)
+pontos$ASP <- raster::extract(ASP,  pontos)
+pontos$CNBL <- raster::extract(CNBL, pontos)
+pontos$DECLI <- raster::extract(DECLI, pontos)
+pontos$ELEV <- raster::extract(ELEV, pontos)
+pontos$LS <- raster::extract(LS, pontos)
+pontos$PLC <- raster::extract(PLC, pontos)
+pontos$RSP <- raster::extract(RSP, pontos)
+pontos$TPI <- raster::extract(TPI, pontos)
+pontos$TRI <- raster::extract(TRI, pontos)
+pontos$TWI <- raster::extract(TWI, pontos)
+pontos$VD <- raster::extract(VD, pontos)
+pontos$VDCN <- raster::extract(VDCN, pontos)
+pontos$RFPF <- raster::extract(RFPF, pontos)
 ```
 
-Dos 108 ha, 73 são de área plantada. Para fins de ordenamento de produção, a área em questão possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados, classificados conforme a produtividade em níveis 1, 2, 3 e 4, sendo 1 o sítio com melhor produtividade e 4 de pior produtividade (Figura 2).
+Para fins de ordenamento de produção, a área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local.
+
+Cada PIC é classificada em função da média de altura das 100 árvores de maior perímetro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrimentos anuais é estabelecido o índices de sítio (IS). Esse índice é então atribuido à todo o talhão.
+
+As parcelas da área foram classificação em 4 níveis, em que 1 corresponde ao sítio com melhor produtividade (Figura 2).
+
+
 
 ```{r echo=FALSE, out.width='100%'}
 knitr::include_graphics('../docs/figura2.png')
@@ -174,7 +171,7 @@ knitr::include_graphics('../docs/figura2.png')
 Figura 2 - Área de estudo, com indicação da área produtiva e parcelas de inventário contínuo contento os índices de sítio e respectivos valores de altura dominante
 
 
-Os níveis de produtividade foram atribuidos aos polígonos e, nos polígonos que não possuem PIC, o valor de sítio foi estimado com base na altura das árvores amostradas á campo e das PCIs vizinhas.
+Os níveis de produtividade foram atribuidos aos polígonos e, naquelas em que não existe parcela de PIC, o valor de sítio foi estimado com base na altura das árvores amostradas á campo e das PCIs vizinhas.
 
 ```{r}
 #Importar shape da área (contorno)
@@ -183,7 +180,7 @@ pistola <-
                    stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
 sp::spTransform(wgs84utm22s)
 
-#mapview(pistola)
+#mapview::mapview(pistola)
 ```
 
 ```{r}
@@ -191,24 +188,23 @@ sp::spTransform(wgs84utm22s)
 #shape no pacote raster pela função shapefile
 ProdutividadePistola <- 
  raster::shapefile('../data/Produtividade/ProdutividadePistola.shp',
-                   stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
+                   stringsAsFactors = FALSE, encoding = 'UTF-8') %>%
  sp::spTransform(wgs84utm22s)
 
-sp::spplot(ProdutividadePistola, scales = list(draw = TRUE), main = "Mapa de índices de Sítio")
-
-#mapview(ProdutividadePistola)
+sp::spplot(ProdutividadePistola, main = "Mapa de índices de Sítio")
+default.stringsAsFactors()
+#mapview::mapview(ProdutividadePistola)
 ```
 
 ```{r}
 #Amostragem do sitio
-pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola) %>% unlist()
+pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola, na.omit = TRUE) %>% unlist()
 #str(pontos)
-pontos@data
+#pontos@data
 ```
 
 ```{r}
 pontos$Sitio <- as.factor(pontos@data$Sitio)
-#str(pontos)
 ```
 
 ```{r}
@@ -221,24 +217,12 @@ sp::spplot(
 latticeExtra::as.layer()
 ```
 
-Análise exploratória dos pontos
 
-```{r}
-as.formula(paste("PFd~",paste(names(pontos)[c(11:30)], collapse="+"), collapse=""))
+Predição por random forest
+PFd ~ DECLI + ELEV + h
 
-lm_fit <- lm(boxcoxpfd ~ Sitio + LS + TWI + VD + CNBL + ELEV + DECLI + ASP + VDCN, pontos)
-
-summary(lm_fit)
-#pontos@data
-```
-
-```{r}
-op <- par(mfrow = c(2, 2))
-plot(lm_fit, which = 1:4, cex = 1.5, lwd = 1.5)
-par(op)
-```
-
-Predição por rf
+RMSE      Rsquared 
+2.717759  0.4153228
 
 ```{r}
 caret::modelLookup('rf')
@@ -250,9 +234,10 @@ caret::modelLookup('rf')
 form <- as.formula(paste("PFd~", paste(names(pontos)[c(12:24)], collapse="+"), collapse=""))
 form
 
-rf_fit <- train(form = form, data = pontos@data,
-  method = "rf", tuneLength = 1, importance = TRUE, trControl = trainControl("LOOCV"))
 
+rf_fit <- caret::train(PFd ~ DECLI + ELEV, data = pontos@data,
+  method = "rf", tuneLength = 1, importance = TRUE, trControl = trainControl("LOOCV"))
+  
 rf_fit
 ```
 
@@ -271,6 +256,7 @@ grid$rf <- raster::predict(rf_fit, grid)
 sp::spplot(grid, 'rf')
 
 ```
+
 
 ```{r}
 sp::spplot(RFPF, scales = list(draw = TRUE))
@@ -292,6 +278,10 @@ Krigagem ordinária pelo gstat:
 
 variograma <- gstat::variogram(PFd ~ 1, pontos)#, boundaries = limites)
 plot(variograma, ylab = "Semivariância", xlab = "Distância (m)", pch = 20, cex = 1.5, plot.numbers = TRUE) #o parâmetro plot.numbers plota o número de pares de pontos)
+
+vario<- georob::sample.variogram(PFd ~ 1,
+    data= pontos, locations = ~ X + Y, lag.dist.def = limites) %>%
+  plot()
 ```
 
 ```{r}
@@ -306,10 +296,12 @@ Avaliada a evolução da semivariância nas diferentes direções, há evidênci
 O processo espacial é anisotrópico?
 
 ```{r AjusteVar, fig.asp=1}
-#Depois, precisamos encontrar uma função do semivariograma/de covariãncia que descrevam esse comportamento dos pontos:
+#Encontrar uma função do semivariograma/de covariãncia que descrevam esse comportamento dos pontos:
 # exponencial
 # gaussiana
 #efeito pepita puro ou puro ruido
+
+#limites <- seq(0, 3000,length.out = 35)
 
 #definir parametros iniciais
 m_exp <- gstat::vgm(psill = 13 - 7, model = 'Exp', range = 15, nugget = 5)
@@ -442,5 +434,20 @@ summary(validacao)
 
 plot(validacao)
 ```
+```
+
+```{r}
+as.formula(paste("h~",paste(names(pontos)[c(11:30)], collapse="+"), collapse=""))
+
+lm_fit <- lm(h ~ Sitio, pontos)
+
+summary(lm_fit)
+#pontos@data
+```
+
+```{r}
+op <- par(mfrow = c(2, 2))
+plot(lm_fit, which = 1:4, cex = 1.5, lwd = 1.5)
+par(op)
 ```
 
