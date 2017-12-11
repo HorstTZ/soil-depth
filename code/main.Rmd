@@ -45,7 +45,7 @@ col_soil_var <- topo.colors(100)
 
 Os dados que utilizei para este trabalho são provenientes de um povoamento florestal de 108 ha de $Pinus taeda$ L. de 29 anos. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
 
-Na área de estudo identificamos Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Háplicos e Cambissolos Húmicos, Latossolos Vermelhos e Gleissolos Melânicos, os quais representam a topossequência clássica da área de estudo (Figura 1c). Conforme as tendências observadas, em locais de relevo plano ou suavemente ondulado com boa drenagem, estão solos profundos com sequência de horizontes A-Bw (Latossolos), em condições de má drenagem, ocorrem solos com a sequência de horizonte A-Cg (Gleissolos). Nos relevos ondulado ou fortemente ondulado, predominam solos rasos com a sequência de horizontes A ou A-Bi (Neossolos e Cambissolos).
+Na área de estudo foam identificados Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Háplicos e Cambissolos Húmicos, Latossolos Vermelhos e Gleissolos Melânicos, os quais representam a topossequência clássica da área de estudo (Figura 1c). Conforme as tendências observadas no campo, em locais de relevo plano ou suavemente ondulado com boa drenagem estão solos profundos com sequência de horizontes A-Bw (Latossolos), em condições de má drenagem, ocorrem solos com a sequência de horizonte A-Cg (Gleissolos). Nos relevos ondulado ou fortemente ondulado, predominam solos rasos com a sequência de horizontes A ou A-Bi (Neossolos e Cambissolos).
 
 ```{r echo=FALSE, out.width='100%'}
 knitr::include_graphics('../docs/figura1.png')
@@ -57,7 +57,7 @@ Figura 1. Localização da área de estudo no município de Campo Belo do Sul, E
 
 Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b). Os pontos foram alocados pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote **clhs**. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
-Em cada ponto amostral medimos a profundidade do solum (PF) e a altura das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
+Em cada ponto amostral foi medida a profundidade do solum (PF) e a altura das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
 Para representar h utilizamos o valor médio dos quatro indivíduos de $Pinus taeda$ mais próximos de cada ponto amostral foram mensurados. Portanto, cada ponto de amostragem representa uma área (bloco) de aproximadamente 10 x 10 metros no campo.
 
 ```{r}
@@ -74,7 +74,7 @@ pontos@data
 ```
 
 ```{r}
-#normalidade profundidade
+#normalidade
 stats::shapiro.test(pontos$PFd)
 raster::hist(pontos$PFd)
 
@@ -117,7 +117,7 @@ graphics::hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
 ```
 
 
-Utilizei o MDE disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para 10 m utilizando a ferramenta $reamostragem$ no software SAGA GIS.
+Utilizei o MDE disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para resolução espacial de 10 metros utilizando a ferramenta $reamostragem$ no software SAGA GIS.
 
 A partir do MDE foram derivadas 12 variáveis topográficas utilizando a ferramenta $Tarrain Analyses$ do software SAGA GIS.
 
@@ -138,6 +138,7 @@ VDCN <- raster::raster("../data/Covars/VDCN.tif")
 RFPF <- raster::raster("../data/Covars/predictionPF.tif")
 ```
 
+A partir da função `extract` implementada no pacote *raster* extraí os valores de cada objeto raster nas localizações de cada observação contidas no objeto espacial "pontos".
 
 ```{r}
 #Extrair as covar (X e Y = nome das colunas)
@@ -157,13 +158,18 @@ pontos$VDCN <- raster::extract(VDCN, pontos)
 pontos$RFPF <- raster::extract(RFPF, pontos)
 ```
 
+Além dos atributos do terreno, foi utilizado o mapa predito via random forest (RF) utilizando o comando `rf()` implementado no pacote *caret*, com número padrão de preditores a serem selecionados em cada nó padrão $(mtry = padrão)$ e 1000 árvores $(ntrees = 1000)$, utilizando como preditoras as variáveis topográficas oriundas do MDE
+
+```{r}
+sp::spplot(RFPF, scales = list(draw = TRUE))
+```
+
+
 Para fins de ordenamento de produção, a área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local.
 
 Cada PIC é classificada em função da média de altura das 100 árvores de maior perímetro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrimentos anuais é estabelecido o índices de sítio (IS). Esse índice é então atribuido à todo o talhão.
 
 As parcelas da área foram classificação em 4 níveis, em que 1 corresponde ao sítio com melhor produtividade (Figura 2).
-
-
 
 ```{r echo=FALSE, out.width='100%'}
 knitr::include_graphics('../docs/figura2.png')
@@ -177,38 +183,39 @@ Os níveis de produtividade foram atribuidos aos polígonos e, naquelas em que n
 #Importar shape da área (contorno)
 pistola <- 
  raster::shapefile('../data/contorno/limite_projeto.shp',
-                   stringsAsFactors = TRUE, encoding = 'UTF-8') %>%
+                   stringsAsFactors = FALSE, encoding = 'UTF-8') %>%
 sp::spTransform(wgs84utm22s)
 
 #mapview::mapview(pistola)
 ```
 
+Utilizei a função $shapefile$ implementada no pacote *raster* para carregar o polígono da área de estudo - armazenado no objeto `pistola` e o polígono com informações das sítio - armazenado no objeto `ProdutividadePistola`.
+A função sp::spTransform foi usada para projetar as coordenadas original no plano cartesiano (UTM).
+
+
 ```{r}
-#Importar shape da produtividade do projeto pistola e transformar as coordenadas
-#shape no pacote raster pela função shapefile
 ProdutividadePistola <- 
- raster::shapefile('../data/Produtividade/ProdutividadePistola.shp',
-                   stringsAsFactors = FALSE, encoding = 'UTF-8') %>%
+ raster::shapefile('../data/Produtividade/ProdutividadePistola.shp') %>%
  sp::spTransform(wgs84utm22s)
 
 sp::spplot(ProdutividadePistola, main = "Mapa de índices de Sítio")
-default.stringsAsFactors()
-#mapview::mapview(ProdutividadePistola)
+#default.stringsAsFactors()
+#str(ProdutividadePistola)
 ```
+
+Usei a função `over` implementada no pacote *sp* para identificar o nível de produtividade do polígono dentro da qual cada observação se encontra e O resultado foi armazenado em uma coluna definida como $Sitio$ no objeto mesmo objeto espacial "pontos".
 
 ```{r}
 #Amostragem do sitio
 pontos$Sitio <- sp::over(x = pontos, y = ProdutividadePistola, na.omit = TRUE) %>% unlist()
-#str(pontos)
-#pontos@data
-```
-
-```{r}
 pontos$Sitio <- as.factor(pontos@data$Sitio)
+#str(pontos)
 ```
 
 ```{r}
 #localização dos pontos
+col_sitio <- terrain.colors(nlevels(ProdutividadePistola$ProdutividadePistola))
+
 sp::spplot(
   ProdutividadePistola, scales = list(draw = T),
   main = 'Localização dos pontos') +
@@ -218,99 +225,197 @@ latticeExtra::as.layer()
 ```
 
 
-Predição por random forest
-PFd ~ DECLI + ELEV + h
-
-RMSE      Rsquared 
-2.717759  0.4153228
-
-```{r}
-caret::modelLookup('rf')
-```
-
-```{r}
-#Random Forest
-
-form <- as.formula(paste("PFd~", paste(names(pontos)[c(12:24)], collapse="+"), collapse=""))
-form
-
-
-rf_fit <- caret::train(PFd ~ DECLI + ELEV, data = pontos@data,
-  method = "rf", tuneLength = 1, importance = TRUE, trControl = trainControl("LOOCV"))
-  
-rf_fit
-```
-
-```{r}
-pontos@data$rf <- rf_fit$finalModel$predicted
-lm(PFd ~ rf, pontos@data) %>% plot()
-```
-
-```{r}
-grid <- sp::spsample(pistola, 10000, type = 'regular')
-plot(grid@coords, asp = 1)
-```
-
-```{r}
-grid$rf <- raster::predict(rf_fit, grid)
-sp::spplot(grid, 'rf')
-
-```
-
-
-```{r}
-sp::spplot(RFPF, scales = list(draw = TRUE))
-```
 
 *Parte I - Profundidade do solo*
 
-n = 102 observações para calibração + predição + validação (108 ha)
+n = 96 observações para calibração + predição + validação (108 ha)
 Validação: validação cruzada (leave-one-out)
-Covariáveis: atributos de terreno com resolução espacial de 10 m + sítios (4 classes)
-Suporte amostral de blocos (10 x 10 m)
-Erro de medida
 
+**Modelo linear misto de variação espacial (georob)**
 
-**Krigagem ordinária pelo gstat:**
+Segundo esse modelo, os dados geoestatísticos são uma realização de um campo aleatório que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
+Assim, considerei como efeitos fixos da variação da PFd a predição da PF via floresta aleatória, atributos de terreno oriundos do MDE e os índices de sítio.
+
+**Ajuste do variograma:**
 
 
 ```{r Variogram, fig.asp=1, fig.width=7, fig.height=7}
 
-variograma <- gstat::variogram(PFd ~ 1, pontos)#, boundaries = limites)
-plot(variograma, ylab = "Semivariância", xlab = "Distância (m)", pch = 20, cex = 1.5, plot.numbers = TRUE) #o parâmetro plot.numbers plota o número de pares de pontos)
-
-vario<- georob::sample.variogram(PFd ~ 1,
-    data= pontos, locations = ~ X + Y, lag.dist.def = limites) %>%
+vario<- georob::sample.variogram(PFd ~ RFPF + ELEV + DECLI + Sitio,
+    data= pontos, locations = ~ X + Y, lag.dist.def = limites, estimator = c( "matheron"),
+    mean.angle = TRUE, annotate.npairs = T) %>%
   plot()
+
 ```
 
 ```{r}
-lags <- seq(0, 2500, length.out = 15)
+lags <- seq(0, 100, length.out = 15)
 georob::sample.variogram(
-  PFd ~ 1, data = pontos, locations = ~ X + Y, lag.dist.def = lags,
+ PFd ~ RFPF + ELEV + DECLI, data = pontos, locations = ~ X + Y, lag.dist.def = lags,
   xy.angle.def = c(0, 22.5, 67.5, 112.5, 157.5, 180)) %>% 
-  plot(type = "b")
+    plot(type = "b", ylab = 'Semivariância', xlab = 'Distância de separação (km)')
 ```
 
-Avaliada a evolução da semivariância nas diferentes direções, há evidência clara da existência de estruturas de autocorrelação espacial dependentes da direção.
-O processo espacial é anisotrópico?
+Avaliada a evolução da semivariância nas diferentes direções, há evidência da existência de estruturas de autocorrelação espacial dependentes da direção, então o processo espacial é anisotrópico.
+Porém, assumi a isotropia do processo espacial e o semivariograma amostral gerado foi independente da direção.
 
-```{r AjusteVar, fig.asp=1}
-#Encontrar uma função do semivariograma/de covariãncia que descrevam esse comportamento dos pontos:
-# exponencial
-# gaussiana
-#efeito pepita puro ou puro ruido
+Ajustei ao variograma amostral um modelo exponencial do variograma usando o método dos quadrados mínimos não-lineares ponderados, com ponderação definida conforme o método de Cressie. O processo de estimativa dos parâmetros do modelo exponencial do variograma foi conduzido via otimização usando a função stats::optim(method = "BFGS").
 
-#limites <- seq(0, 3000,length.out = 35)
+```{r}
+vario_fit <- 
+  georob::fit.variogram.model(
+  vario, variogram.model = 'RMexp', param = c(variance = 13, nugget = 10, scale = 70), 
+  weighting.method = "cressie", method = "BFGS")
 
-#definir parametros iniciais
-m_exp <- gstat::vgm(psill = 13 - 7, model = 'Exp', range = 15, nugget = 5)
-m_exp <- gstat::fit.variogram(variograma, m_exp)
 
-#criar espaço para figura
-plot(variograma, m_exp, col.line = 'red', xlab = 'Distância (m)', ylab = 'Semivariância')
+#produzidos pelo otimizador a cada 10 iterações:
+summary(vario_fit)
+```
+
+```{r plot vario}
+plot(vario, type = "b", xlab = 'Distância de separação (m)', ylab = 'Semivariância')
+lines(vario_fit, col = "red", lty = 'dashed')
+```
+
+Na geoestatística clássica, a variância não explicada é expressa em um único parâmetro $nugget$. Porém, no modelo linear misto podemos separar o parâmetro nugget em dois componentes: a variãncia devida aos erros de medida, modelada pelo parâmetro $nugget$ e variância devida à variação espacial em pequena escala, modelada pelo parâmetro $snugget$.
+Considerando que durante a obteção dos dados de campo as informações de PF os valores foram arredondadas pelas em decímetros, considerei que a variância do erro de medida é igual a 0.5, ou seja, 62% do parâmetro $nugget$. A variância restante foi atribuída a variação espacial não auto-correlacionada espacialmente - não capturada pelo plano amostral $snugget$.
+
+Feitas essa suposição, ajustei novamente o modelo novamente, agora mantendo ambos nugget e snugget fixos.
+
+```{r}
+vario_fit_error <- georob::georob(
+   PFd ~ RFPF + ELEV + DECLI, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
+  param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
+            nugget = vario_fit$variogram.object[[1]]$param[['nugget']] * 0.625,
+            snugget = vario_fit$variogram.object[[1]]$param[['nugget']] * 0.375,
+            scale = vario_fit$variogram.object[[1]]$param[['scale']]),
+  fit.param = georob::default.fit.param(nugget = FALSE, snugget = FALSE),
+  tuning.psi = 1000, control = georob::control.georob(initial.fixef = 'lm'))
+summary(vario_fit_error)
 
 ```
+
+
+```{r}
+plot(vario, type = "b", xlab = 'Distância de separação (m)', ylab = 'Semivariância', lty = 'dashed')
+lines(vario_fit, col = "navyblue")
+lines(vario_fit_error, col = "orange")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r sample grid}
+grid <- sp::spsample(pistola, 10000, type = 'regular') #CRIAR O GRID: Suporte de predição pontual
+
+
+```
+
+```{r colnames}
+colnames(grid@coords) <- colnames(pontos@coords) #deixar com nomes diferentes
+
+#predição
+pred_ponto <- predict(
+  vario_fit, newdata = grid, type= "signal", signif = 0.95,
+  control = georob::control.predict.georob(extended.output = TRUE))
+sp::gridded(pred_ponto) <- TRUE
+str(pred_ponto)
+
+#Argumento type: fazer a predição do sinal "signal" z, "response" se for y ou efeitos fixos "trend"
+#se quiser predizer erro de medida, y = z + e, então response - signal = erro
+#se tendência - predito = componente aleatório
+```
+
+
+
+########### AULA 3
+
+
+```{r ajuste regressao}
+lm_fit <- lm(areia_ ~ um + geo, pontos400in)
+summary(lm_fit)
+
+```
+
+```{r plot}
+limites <- seq(0, 1500, length.out = 15)
+residuals(lm_fit) %>% 
+  georob::sample.variogram(
+    locations = pontos400in@coords, lag.dist.def = limites,
+    xy.angle.def = c(0, 22.5, 67.5, 112.5, 157.5, 180)) %>% 
+  plot(type = "b", ylab = 'Semivariância', xlab = 'Distância de separação (km)')
+```
+
+```{r variograma}
+vario <- 
+  residuals(lm_fit) %>% 
+  georob::sample.variogram(
+    locations = pontos400in@coords, lag.dist.def = limites)
+vario_fit <- 
+  georob::fit.variogram.model(
+  vario, variogram.model = 'RMexp', param = c(variance = 20000, nugget = 2000, scale = 500), 
+  weighting.method = "cressie", method = "BFGS")
+```
+
+```{r summary rlm }
+
+#krigagem universal
+reml_fit <- georob::georob(
+  areia_ ~ um + geo, pontos400in, locations = ~ coord_x + coord_y, variogram.model = 'RMexp', 
+  param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
+            nugget = vario_fit$variogram.object[[1]]$param[['nugget']], 
+            scale = vario_fit$variogram.object[[1]]$param[['scale']]),
+  tuning.psi = 1000, control = georob::control.georob(initial.fixef = 'lm'))
+summary(reml_fit)
+
+```
+
+```{r plot vario}
+plot(vario, type = "b", xlab = 'Distância de separação (m)', ylab = 'Semivariância')
+lines(vario_fit, col = "red", lty = 'dashed')
+lines(reml_fit, col = "blue", lty = 'dashed')
+```
+
+```{r sample grid}
+grid <- sp::spsample(pedologia25, 10000, type = 'regular') #CRIAR O GRID: Suporte de predição pontual
+grid <- 
+  sp::SpatialPointsDataFrame(
+    coords = grid@coords, 
+    data = data.frame(
+      um = sp::over(grid, pedologia25) %>% unlist(), #amostra dos dados pedologicos
+      geo = sp::over(grid, geologia50) %>% unlist()), #amostra dos dados geologicos
+    proj4string = grid@proj4string) #definir projeção
+str(grid)
+```
+
+```{r colnames}
+colnames(grid@coords) <- colnames(pontos400in@coords) #deixar com nomes diferentes
+
+#predição
+pred_ponto <- predict(
+  reml_fit, newdata = grid, type= "signal", signif = 0.95,
+  control = georob::control.predict.georob(extended.output = TRUE))
+sp::gridded(pred_ponto) <- TRUE
+str(pred_ponto)
+
+#Argumento type: fazer a predição do sinal "signal" z, "response" se for y ou efeitos fixos "trend"
+#se quiser predizer erro de medida, y = z + e, então response - signal = erro
+#se tendência - predito = componente aleatório
+```
+
 
 
 ```{r}
@@ -321,133 +426,5 @@ plot(grid@coords, asp = 1)
 
 ```
 
-```{r}
-#Mapa com valores preditos
-mapa_exp <- gstat::krige(PFd ~ 1, pontos, grid, m_exp, debug.level = 1)
-sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
 
-
-sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
-```
-
-```{r DesvP}
-#Passar para desvio padrão CUIDADO PARA NÃO FAZER DUAS VEZES
-mapa_exp$var1.var <- sqrt(mapa_exp$var1.var)
-
-sp::spplot(mapa_exp, 2, col.regions = col_soil_var)
-```
-
-
-**Krigagem  pelo georob**
-
-Modelo linear misto de variação espacial (georob)
-
-Segundo esse modelo, os dados geoestatísticos são uma realização de um campo aleatório que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
-
-- Efeitos fixos: floresta aleatória
-Predição espacial: suporte de blocos: 10x10 m e por talhão
-
-
-```{r fig.asp=1}
-limites <- seq(0, 3000,length.out = 35)
-
-vario<- georob::sample.variogram(PFd ~ RFPF,
-    data= pontos, locations = ~ X + Y, lag.dist.def = limites) %>%
-  plot()
-
-```
-
-
-
-
-
-
-
-```{r fig.asp=1}
-#krigagem universal
-
-reml_fit <- georob::georob(
-  PFd ~ RFPF + DECLI + VDCN, data = pontos, locations = ~ X + Y, 
-  variogram.model = 'RMexp', 
-  param = c(variance = 10, 
-            nugget = 5, 
-            scale = 15),
-  tuning.psi = 1000)
-
-
-plot(vario)
-lines(reml_fit)
-```
-
-```{r}
-#Mapa com valores preditos
-mapa_exp <- gstat::krige(PFd ~ RFPF + DECLI + VDCN, pontos, grid, m_exp, debug.level = 1)
-sp::gridded(mapa_exp) <- TRUE #grid passa a ser raster
-
-
-sp::spplot(mapa_exp, 1, col.regions = col_soil_var)
-```
-
-```{r}
-#código de predição via georob... não lembro, mas acho que não tem a espacialização aí
-
-grid <- sp::spsample(dnos_in, 10000, type = 'regular')
-
-```
-
-
-
-
-
-#luciano
-
-```{r}
-
-colnames(grid@coords) <- colnames(dnos_in@coords)
-pred_ponto <- predict(
-  reml_fit, newdata = grid, type = 'signal', signif = 0.95,
-  control = georob::control.predict.georob(extended.output = TRUE))
-sp::gridded(pred_ponto) <- TRUE
-str(pred_ponto)
-```
-
-```{r}
-at <- pred_ponto@data[, c("pred", "lower", "upper")] %>% range()
-at <- seq(at[1], at[2], length.out = 20)
-sp::spplot(pred_ponto, zcol = c("lower", "pred", "upper"), at = at, main = "prediction")
-```
-
-```{r}
-sp::spplot(pred_ponto, zcol = 'se')
-```
-
-Validação cruzada do modelo utilizando apenas krigagem ordinária.
-
-```{r}
-validacao <- georob::cv(reml_fit, nset = 375)
-summary(validacao)
-```
-
-```{r}
-1 - sum((validacao$pred$data - validacao$pred$pred)^2) / 
-  sum((validacao$pred$data - mean(validacao$pred$data))^2)
-
-plot(validacao)
-```
-```
-
-```{r}
-as.formula(paste("h~",paste(names(pontos)[c(11:30)], collapse="+"), collapse=""))
-
-lm_fit <- lm(h ~ Sitio, pontos)
-
-summary(lm_fit)
-#pontos@data
-```
-
-```{r}
-op <- par(mfrow = c(2, 2))
-plot(lm_fit, which = 1:4, cex = 1.5, lwd = 1.5)
-par(op)
-```
 
