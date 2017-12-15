@@ -194,7 +194,8 @@ Além dos atributos do terreno, foi utilizado o mapa predito via random forest (
 
 Predição por random forest PFd ~ AT + SItio
 RMSE Rsquared 2.717759 0.4153228
-#Random Forest#
+
+# Random Forest
 
 ```{r}
 rf_fit <- caret::train((PFd ~ DECLI + ELEV + ASP + CNBL + DECLI + ELEV + LS + PLC + RSP + TPI + TRI + TWI + VD + VDCN + Sitio), data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
