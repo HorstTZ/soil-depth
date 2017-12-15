@@ -68,15 +68,18 @@ sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
 ```
 
-Verificar a normalidade dos dados
+ASR: Esses testes não possuem qualquer validade no contexto espacial. Ademais, são fortemente influenciados pelo
+número de observações. Para verificar a distribuição dos dados use histogramas de frequência.
+
+<!-- Verificar a normalidade dos dados -->
 
 ```{r}
-stats::shapiro.test(pontos$PFd)
-stats::shapiro.test(pontos$h)
+# stats::shapiro.test(pontos$PFd)
+# stats::shapiro.test(pontos$h)
 ```
 
-PF bimodal
-h normal
+<!-- PF bimodal -->
+<!-- h normal -->
 
 ```{r}
 par(mfrow=c(1,2))
