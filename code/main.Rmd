@@ -33,12 +33,12 @@ library(mapview)
 library(raster)
 library(rmarkdown)
 library(caret)
+library(randomForest)
 ```
 
 ```{r}
 # Sistemas de referência de coordenadas (Fonte: http://spatialreference.org/ref/epsg/)
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
-sirgas2000 <- sp::CRS('+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs')
 ```
 
 *Caracterização dos dados*
@@ -68,20 +68,7 @@ sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
 ```
 
-ASR: Esses testes não possuem qualquer validade no contexto espacial. Ademais, são fortemente influenciados pelo
-número de observações. Para verificar a distribuição dos dados use histogramas de frequência.
-
-<!-- Verificar a normalidade dos dados -->
-
-```{r}
-# stats::shapiro.test(pontos$PFd)
-# stats::shapiro.test(pontos$h)
-```
-
-<!-- PF bimodal -->
-<!-- h normal -->
-
-```{r}
+```{r, asp = 1}
 ex <- hist(pontos$PFd, breaks = 10, xlab = "", col = "grey90", cex.axis = 1, xlim = c(1, 10), ylim = c(0, 37), ylab = "", main = "")
 xfit <- seq(min(pontos$PFd), max(pontos$PFd), length = 50)
 yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
@@ -93,7 +80,7 @@ yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
      box()
 ```
 
-```{r}
+```{r, asp = 1}
 ex2 <- graphics::hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
           xlim=c(23,38),  ylim=c(0,16),ylab="",main="") 
     xfit<-base::seq(min(pontos$h),max(pontos$h), length=50) 
@@ -125,6 +112,8 @@ TWI <- raster::raster("../data/Covars/TWI.tif")
 VD <- raster::raster("../data/Covars/VD.tif")
 VDCN <- raster::raster("../data/Covars/VDCN.tif")
 RFPF <- raster::raster("../data/Covars/predictionPF.tif")
+Sitio <- raster::raster("../data/Covars/Sitio.tif")
+sp::proj4string(Sitio) <- wgs84utm22s
 ```
 
 A partir da função `extract` implementada no pacote **raster** extração os valores de cada objeto raster nas localizações de cada observação contidas no objeto espacial "pontos".
@@ -143,9 +132,12 @@ pontos$TWI <- raster::extract(TWI, pontos)
 pontos$VD <- raster::extract(VD, pontos)
 pontos$VDCN <- raster::extract(VDCN, pontos)
 pontos$RFPF <- raster::extract(RFPF, pontos)
+pontos$Sitio <- raster::extract(Sitio, pontos)
+
+pontos@data
 ```
 
-Para fins de ordenamento de produío, a área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local.
+Para fins de ordenamento de produção, a área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local.
 
 Cada PIC é classificada em função da média de altura das 100 árvores de maior per?metro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrimentos anuais é estabelecido o índices de sítio (IS). Esse índice é então atribuido à todo o talhão.
 
@@ -197,6 +189,11 @@ RMSE Rsquared 2.717759 0.4153228
 
 # Random Forest
 
+
+
+
+
+
 ```{r}
 rf_fit <- caret::train((PFd ~ DECLI + ELEV + ASP + CNBL + DECLI + ELEV + LS + PLC + RSP + TPI + TRI + TWI + VD + VDCN + Sitio), data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
 
@@ -232,7 +229,7 @@ grid <-
       TWI = raster::extract(TWI, grid) %>% unlist(),
       VD = raster::extract(VD, grid) %>% unlist(),
       VDCN = raster::extract(VDCN, grid) %>% unlist(),
-      Sitio = sp::over(grid, ProdutividadePistola) %>% unlist()),
+      Sitio = raster::extract(Sitio, grid) %>% unlist()),
     proj4string = grid@proj4string)
 colnames(grid@coords) <- colnames(pontos@coords)
 ```
@@ -246,7 +243,41 @@ grid@data
 
 ```{r}
 sp::spplot(RFPF, scales = list(draw = TRUE))
+
+compareRaster(ASP, Sitio)
 ```
+
+
+
+
+```{r}
+rf_fit <- caret::train((PFd ~ DECLI + ELEV + Sitio), data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
+
+rf_fit
+```
+
+
+```{r}
+beginCluster()
+prediction <- 
+  clusterR(brick(DECLI, ELEV, Sitio), raster::predict, 
+           args = list(model = rf_fit, type = "raw", index = 1))
+endCluster()
+
+plot(prediction)
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 *Parte I - Profundidade do solo*
 
