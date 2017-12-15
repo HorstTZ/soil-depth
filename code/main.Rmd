@@ -180,7 +180,7 @@ pontos$Sitio <- as.factor(pontos@data$Sitio)
 ```{r}
 sp::spplot(
   ProdutividadePistola, scales = list(draw = T),
-  main = 'Localizaío dos pontos') +
+  main = 'Localização dos pontos') +
   lattice::xyplot(Y ~ X, data = as.data.frame(pontos@coords),
                   pch = 20, col = 'red', lwd = 2, cex = 1.5) %>%
 latticeExtra::as.layer()
