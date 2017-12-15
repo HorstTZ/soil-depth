@@ -203,6 +203,7 @@ rf_fit
 ```
 
 ```{r}
+# ASR: O primeiro erro apareceu aqui. Parece ser devido a NAs nos dados de calibração.
 pontos@data$rf <- rf_fit$finalModel$predicted
 lm(PFd ~ rf, data = pontos) %>% plot()
 ```
