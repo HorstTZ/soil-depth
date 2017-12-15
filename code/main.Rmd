@@ -59,7 +59,7 @@ Figura 1. Localização da área de estudo no município de Campo Belo do Sul, E
 Definimos uma malha amostral contendo 102 pontos para coleta de dados (Figura 1 b). Os pontos foram alocados pelo algoritmo Hipercubo Latino Condicionado (Conditioned Latin Hipercube Sampling – cLHS) através da função $clhs()$ implementado no pacote **clhs**. Foram consideradas como variáveis condicionantes da amostragem ELEV, VD, TWI, CNBL e DECLI as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
 Em cada ponto amostral foi medida a profundidade do solum (PF) e a altura das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
-Para representar h utilizamos o valor médio dos quatro indivíduos de $Pinus taeda$ mais próximos de cada ponto amostral foram mensurados. Portanto, cada ponto de amostragem representa uma área (bloco) de aproximadamente 10 x 10 metros no campo.
+Para representar h utilizamos o valor médio dos quatro indivíduos de *Pinus taeda* mais próximos de cada ponto amostral foram mensurados. Portanto, cada ponto de amostragem representa uma área (bloco) de aproximadamente 10 x 10 metros no campo.
 
 ```{r}
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
@@ -68,29 +68,32 @@ sp :: proj4string(pontos) <- wgs84utm22s #coordenada referencia
 pontos <- sp :: spTransform(pontos, wgs84utm22s) #transforma coordenada para wgs84
 ```
 
-Verificar a normalidade dos dados
+ASR: Esses testes não possuem qualquer validade no contexto espacial. Ademais, são fortemente influenciados pelo
+número de observações. Para verificar a distribuição dos dados use histogramas de frequência.
+
+<!-- Verificar a normalidade dos dados -->
 
 ```{r}
-stats::shapiro.test(pontos$PFd)
-stats::shapiro.test(pontos$h)
+# stats::shapiro.test(pontos$PFd)
+# stats::shapiro.test(pontos$h)
 ```
 
-PF bimodal
-h normal
+<!-- PF bimodal -->
+<!-- h normal -->
 
 ```{r}
-par(mfrow=c(1,2))
-ex <- graphics::hist(pontos$PFd, breaks=10, xlab="", col="grey90", cex.axis=1,
-          xlim=c(1,10),  ylim=c(0,37),ylab="",main=" ") 
-    xfit<-base::seq(min(pontos$PFd),max(pontos$PFd), length=50) 
-    yfit<-stats::dnorm(xfit,mean=mean(pontos$PFd),sd=sd(pontos$PFd))
+ex <- hist(pontos$PFd, breaks = 10, xlab = "", col = "grey90", cex.axis = 1, xlim = c(1, 10), ylim = c(0, 37), ylab = "", main = "")
+xfit <- seq(min(pontos$PFd), max(pontos$PFd), length = 50)
+yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
    yfit<-  yfit*diff(ex$mids[1:2])*length(pontos$PFd) 
     lines(xfit, yfit, col="red", lwd=2) 
     mtext("Frequência",line=2.6, side=2, cex=1) 
     mtext("PF (dm)",line=2.6, side=1, cex=1) 
     graphics::rug((pontos$PFd), col="red")
      box()
+```
 
+```{r}
 ex2 <- graphics::hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
           xlim=c(23,38),  ylim=c(0,16),ylab="",main="") 
     xfit<-base::seq(min(pontos$h),max(pontos$h), length=50) 
@@ -177,7 +180,7 @@ pontos$Sitio <- as.factor(pontos@data$Sitio)
 ```{r}
 sp::spplot(
   ProdutividadePistola, scales = list(draw = T),
-  main = 'Localizaío dos pontos') +
+  main = 'Localização dos pontos') +
   lattice::xyplot(Y ~ X, data = as.data.frame(pontos@coords),
                   pch = 20, col = 'red', lwd = 2, cex = 1.5) %>%
 latticeExtra::as.layer()
@@ -191,7 +194,8 @@ Além dos atributos do terreno, foi utilizado o mapa predito via random forest (
 
 Predição por random forest PFd ~ AT + SItio
 RMSE Rsquared 2.717759 0.4153228
-#Random Forest#
+
+# Random Forest
 
 ```{r}
 rf_fit <- caret::train((PFd ~ DECLI + ELEV + ASP + CNBL + DECLI + ELEV + LS + PLC + RSP + TPI + TRI + TWI + VD + VDCN + Sitio), data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
@@ -200,6 +204,7 @@ rf_fit
 ```
 
 ```{r}
+# ASR: O primeiro erro apareceu aqui. Parece ser devido a NAs nos dados de calibração.
 pontos@data$rf <- rf_fit$finalModel$predicted
 lm(PFd ~ rf, data = pontos) %>% plot()
 ```
