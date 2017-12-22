@@ -67,10 +67,10 @@ sp :: proj4string(pontos) <- wgs84utm22s
 pontos <- sp :: spTransform(pontos, wgs84utm22s)
 ```
 
-Com uma análise preliminar avaliei a distribuição de freqüênciasnos dados de profundidade do solum. 
-Apesar das amostras apresentam uma distribuição bimodal (FIgura 2), visando ao atendimento de restrições teóricas ao emprego da geoestatística, assumi que os dados provém de uma distribuição normal.
+Com uma análise preliminar avaliei a distribuição de freqüências dos dados de profundidade do solum e altura das árvores. 
+Apesar das amostras de profundidade do solum apresentarem uma distribuição bimodal (FIgura 2), visando ao atendimento de restrições teóricas ao emprego da geoestatística, assumi que os dados provém de uma distribuição normal.
 
-```{r, echo = FALSE, asp = 1, fig.cap="2 Histograma de frequências da profundidade do solum"}
+```{r, echo = FALSE, fig.asp = 1, fig.cap="2 Histograma de frequências da profundidade do solum"}
 ex <- hist(pontos$PFd, breaks = 10, xlab = "", col = "grey90", cex.axis = 1, xlim = c(1, 10), ylim = c(0, 37), ylab = "", main = "")
 xfit <- seq(min(pontos$PFd), max(pontos$PFd), length = 50)
 yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
@@ -81,24 +81,42 @@ yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
     graphics::rug((pontos$PFd), col="red")
      box()
 ```
+Os dados de altura da árvores apresentaram uma distribuição de frequências próxima a distribuição normal (Figura 3)
 
+```{r, echo = FALSE, fig.asp = 1, fig.cap="3 Histograma de frequências da profundidade do solum"}
+ex2 <- graphics::hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
+          xlim=c(23,38),  ylim=c(0,16),ylab="",main="") 
+    xfit<-base::seq(min(pontos$h),max(pontos$h), length=50) 
+    yfit<-stats::dnorm(xfit,mean=mean(pontos$h),sd=sd(pontos$h))
+   yfit<-  yfit*diff(ex2$mids[1:2])*length(pontos$h) 
+    lines(xfit, yfit, col="red", lwd=2) 
+    mtext("Frequência",line=2.6, side=2, cex=1) 
+    mtext("h (m)",line=2.6, side=1, cex=1) 
+    graphics::rug((pontos$h), col="red")
+     box()
+```
 ##Modelo geoestatístico
 
-Para isso foi utilizado o modelo linear misto de variação espacial $y(\boldsymbol{s}_i)$, denotado por
+Para modelagem geoestatística dos dados foi utilizado o modelo linear misto de variação espacial $y(\boldsymbol{s}_i)$, denotado por
 $$Y(\boldsymbol{s}_i) = Z(\boldsymbol{s}_i) + \varepsilon(\boldsymbol{s}_i) = \boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta} + B(\boldsymbol{s}_i) + \varepsilon(\boldsymbol{s}_i)$$
-Para utilizar esse modelo, é necessário supor que os dados são uma realização de um campo aleatório $Y(\boldsymbol{s}_i)$ com distribuição normal que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
+Para utilizar esse modelo, foi necessário supor que os dados são uma realização de um campo aleatório $Y(\boldsymbol{s}_i)$ com distribuição normal que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
 
-$Z(\boldsymbol{s}_i)$ é o chamado sinal e possui dois componentes. O primeiro, $\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$ representa os efeitos fixos, ou seja, a tendência espacial de origem desterminística, especificamente, a relação de dependência (causa e efeito) entre as covariáveis ambientais e a variável ambiental.
+$Z(\boldsymbol{s}_i)$ é o chamado sinal e possui dois componentes. O primeiro (efeito fixo) $\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$ representa os efeitos fixos de origem desterminística, que relaciona a dependência entre a variável e as covariáveis.
 
-O segundo componente do sinal, $B(\boldsymbol{s}_i)$, representa os efeitos aleatórios, especificamente, um campo aleatório Gaussiano estacionário não-observável, também chamado de variável latente. Esse campo aleatório Gaussiano é inteiramente descrito por sua função de média e função de covariância.
+O segundo componente do sinal (efeito aleatório), $B(\boldsymbol{s}_i)$, representa os efeitos aleatórios, especificamente, um campo aleatório Gaussiano estacionário não-observável, descrito por sua função de média e função de covariância.
 
-$\varepsilon(\boldsymbol{s}_i)$ é um erro (ou ruído) independente e identicamente distribuído (iid), descrito por uma distribuição Gaussina de probabilidade, cujo parâmetro desconhecido de escala é $\tau$. Tradicionalmente, $\tau^2$ é chamado de efeito pepita ou ainda de variância residual.
+$\varepsilon(\boldsymbol{s}_i)$ é um erro (ou ruído), descrito por uma distribuição Gaussina de probabilidade, cujo parâmetro desconhecido de escala é $\tau$. 
+
+
+#PARTE I - Modelagem geoestatística da profundidade do  Solum
+
+##Modelo linear Misto de variação Espacial
 
 ###Efeito fixo
 
-Defini o $\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$ como a profundidade do solum predita via floresta aleatória.
+Defini o efeito fixo do modelo ($\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$) como sendo a profundidade do solum predita via floresta aleatória.
 
-As covariáveis utilizadas na predição via floresta aleatória foram os atributos do terreno elevação (`ELEV`), declividade (`DECLI`), índice de umidade topográfico (`TWI`) e profundidade do vale (`VD`) e a informação do índice de produtividade ou índice de Sítio (`Sitio`).
+As covariáveis utilizadas na predição via floresta aleatória foram **covariáveis topográficas** e uma **covariável de produção**.
 
 ####Covariáveis topográficas
 
@@ -121,7 +139,7 @@ plot(TWI, main='Índice de umidade topográfico')
 plot(VD, main='Profundidade do vale')
 ```
 
-A partir da função `raster::extract` foram extraídos os valores de cada objeto raster nas localizações de cada observação contidas no objeto espacial `pontos`.
+A partir da função `raster::extract` foram extraídos os valores de cada objeto `RasterLayer` na localização de cada observação contida no objeto espacial `pontos`.
 
 ```{r}
 pontos$DECLI <- raster::extract(DECLI, pontos)
@@ -135,9 +153,9 @@ pontos$VD <- raster::extract(VD, pontos)
 Além dos atributos de terreno, foi utilizado um índice de produtividade disponibilizado pela empresa como variável preditora do modelo floresta aleatória.
 
 Esses índices são utilizados para ordenamento da produção. A área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local.
-Cada PIC é classificada em função da média de altura das 100 árvores de maior perÍmetro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrimentos anuais é estabelecido o índices de sítio (Sitio). Esse índice é então atribuido à todo o talhão.
+Cada PIC é classificada em função da média de altura das 100 árvores de maior perÍmetro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrimentos anuais é estabelecido o índices de sítio (Sitio). Esse índice então é então atribuido à todo o talhão.
 
-As parcelas da área foram classificação em 4 níveis, em que 1 corresponde ao sítio com melhor produtividade. Esses níveis de produtividade foram atribuidos aos polígonos e, naquelas em que não existe parcela de PIC, o valor de sítio foi estimado com base na altura das árvores amostradas á campo.
+As parcelas da área foram classificadas em 4 níveis, em que 1 corresponde a melhor e 4 a pior produtividade. Esses níveis foram atribuidos aos polígonos e, naquelas em que não existe parcela de PIC, o valor de sítio foi estimado com base na altura das árvores amostradas á campo.
 
 Utilizei a função `raster::shapefile` para carregar o polígono com informações das sítio - armazenado no objeto `ProdutividadePistola`.
 A função `sp::spTransform` foi usada para projetar as coordenadas original no plano cartesiano (UTM) e a função `raster::extract` para extraír os valores de cada objeto raster nas localizações de cada observação contidas no objeto espacial `pontos`.
@@ -163,13 +181,12 @@ sp::spplot(
 latticeExtra::as.layer()
 ```
 
-
 ####Predição via floresta aleatória
 
 Foi construido um modelo de predição armazenado no objeto `rf_fit` criado através da função `carret::train(method = "rf")`. As variáveis topograficas e a variável de produtividade foram utilizadas como covariávies preditoras. Todas as informações foram extraídas do objeto espacial `pontos`.
 
 ```{r}
-rf_fit <- caret::train((PFd ~ DECLI + ELEV + TWI + VD + Sitio), data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
+rf_fit <- caret::train((PFd ~ DECLI + ELEV + Sitio), data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
 rf_fit
 ```
 
@@ -186,30 +203,34 @@ O modelo `rf_fit` foi utilizado para fazer a predição espacial em toda área d
 ```{r, message=FALSE, fig.cap="5 Mapa de profundidade do solum predito pelo modelo floresta aleatória"}
 beginCluster()
 prediction <- 
-  clusterR(brick(DECLI, ELEV, TWI, VD, Sitio), raster::predict, 
+  clusterR(brick(DECLI, ELEV, Sitio), raster::predict, 
            args = list(model = rf_fit, type = "raw", index = 1))
 endCluster()
 plot(prediction, main = 'Mapa predito de profundidade do solum (dm)')
 ```
 
 #Modelagem geoestatística
+
 Para proceder as análises geoestatístcas, assimi a estacionariedade de ordem 2, intrínseca e de isotropia.
 
 ##Variograma amostral
+
 O variograma amostral foram computado através da função `georob::sample.variogram(method"metheron"`. O estimador para semivariãncia foi Metheron (método dos momentos).
 Para a obtenção dos parâmetros foi utilizado um corte de 66% da distância máxima entre os pontos, armazenada no objeto `distmax`, excluindo os pares de longo alcance.
 
-```{r fig.asp=1, fig.width=7, fig.height=7, fig.cap="6 Gráfico da função de semivariância"}
+```{r fig.asp=1, fig.width=7, fig.height=7, fig.cap="6 Variograma amostral"}
 distmax <-dist(pontos@coords) %>% max() /3
 
 limites <- seq(0, distmax, length.out = 20)
 vario<- georob::sample.variogram(PFd ~ rf,
     data= pontos, locations = ~ X + Y, lag.dist.def = limites, estimator = "matheron") %>%
   plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE, main = "Semivariograma")
-
 ```
 
-O método de ajuste empregado no variograma amostral foi o de quadrados mínimos não-lineares ponderados, com ajuste de um modelo exponencial, com ponderação definida conforme o método de Cressie. O processo de estimativa dos parâmetros do modelo exponencial do variograma foi conduzido via otimização usando a função `stats::optim(method = "BFGS")`.
+###Ajuste da função que descreve o varigrama amostral
+
+O método de ajuste empregado no variograma amostral foi o de quadrados mínimos não-lineares ponderados, com ajuste de um modelo exponencial, com ponderação definida conforme o método de "Cressie". O processo de estimativa dos parâmetros do modelo exponencial do variograma foi conduzido via otimização usando a função `stats::optim(method = "BFGS")`.
+A função resultante desse processo foi armazenada no objeto `vario_fit`.
 
 ```{r}
 vario_fit <- 
@@ -220,42 +241,50 @@ summary(vario_fit)
 
 O ajuste do modelo exponencial ao variograma amostral é mostrado na Figura 7. A curva ajustada passa próximo ao centro de massa dos vinte pontos do variograma amostral.
 
-```{r, asp = 1, fig.cap="7 variograma ajustado"}
+```{r, asp = 1, fig.cap="7 Variograma amostral (em preto) e função exponencial a ele ajustado (vermelho)"}
 plot(vario, xlab = 'Distância de separação (m)', ylab = 'Semivariância', annotate.npairs = TRUE)
 lines(vario_fit, col = "red", lty = 'dashed')
 ```
 
-Considerando que durante a obteção dos dados de campo as informações de profundidade do solum os valores foram obtidos em decímetros, considerei que a variância do erro de medida é igual a 0.5 dm devido ao arredondamento dos valores. Assim, o erro de medida corresponde a aproximadamente 62% do parâmetro `nugget`. A variância restante foi atribuída a variação espacial não auto-correlacionada espacialmente - não capturada pelo plano amostral `snugget`.
+Considerando que durante a obteção dos dados de campo as informações de profundidade do solum os valores foram obtidos em decímetros, considerei que a variância do erro de medida é igual a 0,5 dm devido ao arredondamento dos valores.
 
+Assim, foi possível discretizar a variância não explicada em erro de medida corresponde 0,25 do parâmetro `nugget`. A variância restante foi atribuída a variação espacial não auto-correlacionada espacialmente - não capturada pelo plano amostral `snugget`.
+A função resultante desse processo foi armazenado no objeto `vario_fit_error`.
 
 ```{r, warning=FALSE}
 vario_fit_error <- georob::georob(
    PFd ~ rf, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
  param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
-           nugget = vario_fit$variogram.object[[1]]$param[['nugget']]*0.66,
-           snugget = vario_fit$variogram.object[[1]]$param[['nugget']]*0.33,
+           nugget = 0.25,
+           snugget = vario_fit$variogram.object[[1]]$param[['nugget']]-0.25,
            scale = vario_fit$variogram.object[[1]]$param[['scale']]),
  fit.param = georob::default.fit.param(nugget = FALSE, snugget = FALSE),
  tuning.psi = 1000, control = georob::control.georob(initial.fixef = 'lm'))
 summary(vario_fit_error)
 ```
 
-```{r}
+A comparação entre as funções `vario_fit_error` e `vario_fit` está na figura 8.
+
+A função `vario_fit_error` foi utilizada para a predição espacial.
+
+```{r, fig.cap=" 8 Variograma amostral (em preto) do modelo linear da profundidade do solum e a função exponencial a ele ajustada (azul) e a função ajustada com erro de medida fixo"}
 plot(vario)
-lines(vario_fit_error, col = "red")
 lines(vario_fit, col = "blue")
+lines(vario_fit_error, col = "red")
 ```
 
 
-CRIAR O GRID: Suporte de predição pontual
- 
 ```{r}
 grid <- sp::spsample(ProdutividadePistola, 10000, type = 'regular')
+colnames(grid@coords) <- colnames(pontos@coords)
 ```
 
 ```{r}
 grid$PFprediction <- raster::extract(prediction, grid)
-grid <- 
+
+prediction@data
+
+grid<- 
   sp::SpatialPointsDataFrame(
     coords = grid@coords, 
     data = data.frame(grid),
@@ -269,11 +298,17 @@ se tendência - predito = componente aleatório
 
 
 Usar control.predict.georob(extended.output = TRUE)
+```{r}
+pred_ponto <- predict(vario_fit_error, newdata = grid, control = georob::control.predict.georob(extended.output = TRUE))
+sp::gridded(pred_ponto) <- TRUE
+sp::spplot(pred_ponto)
+```
+
 
 ```{r}
 pred_ponto <- predict(vario_fit_error, newdata = grid, control = georob::control.predict.georob(extended.output = TRUE))
 sp::gridded(pred_ponto) <- TRUE
-str(pred_ponto)
+sp::spplot(pred_ponto)
 ```
 
 ```{r}
@@ -293,7 +328,9 @@ at <- pred_ponto@data[, c("pred", "lower", "upper")]
 at <- seq(at[1], at[2], length.out = 20)
 sp::spplot(pred_ponto, zcol = c("lower", "pred", "upper"),  at = at, main = "prediction")
 ```
+
 Componente aleatório
+
 ```{r}
 sp::spplot(pred_ponto, zcol = 'se', main = "SE")
 ```
@@ -307,66 +344,15 @@ plot(validacao)
 ```
 
 
+#Parte II - Modelagem geoestatística da Altura das árvores
 
+##Modelo linear misto de variação espacial
 
+###Modelos fixos
 
+Considerei como efeitos fixos da variação da h a predição da profundidade do solum via floresta aleatória.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-*Parte II - Altura das árvores*
-
-n = 96 observações para calibração + predição + validação (108 ha)
-Validação: validação cruzada (leave-one-out)
-
-
-
-
-```{r, echo = FALSE, asp = 1}
-ex2 <- graphics::hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
-          xlim=c(23,38),  ylim=c(0,16),ylab="",main="") 
-    xfit<-base::seq(min(pontos$h),max(pontos$h), length=50) 
-    yfit<-stats::dnorm(xfit,mean=mean(pontos$h),sd=sd(pontos$h))
-   yfit<-  yfit*diff(ex2$mids[1:2])*length(pontos$h) 
-    lines(xfit, yfit, col="red", lwd=2) 
-    mtext("Frequência",line=2.6, side=2, cex=1) 
-    mtext("h (m)",line=2.6, side=1, cex=1) 
-    graphics::rug((pontos$h), col="red")
-     box()
-```
-
-**Modelo linear misto de variação espacial (georob)**
-
-Para utilizar esse modelo, supus que os dados são uma realização de um campo aleatório com distribuição normal que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
-Assim, considerei como efeitos fixos da variação da h a predição da PF via floresta aleatória, atributos de terreno oriundos do MDE e os índices de sítio.
-
-**Ajuste do variograma:**
+##Ajuste do variograma amostral
 
 ```{r fig.asp=1, fig.width=7, fig.height=7}
 distmax <-dist(pontos@coords) %>% max() /2
