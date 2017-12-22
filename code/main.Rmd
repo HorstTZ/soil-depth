@@ -200,13 +200,14 @@ lm(PFd ~ rf, data = pontos) %>% plot()
 
 O modelo `rf_fit` foi utilizado para fazer a predição espacial em toda área de estudo através da função `raster::predict`. O resultado dessa predição espacial foi utilizado como efeito fixo do modelo linear misto de variação.
 
-```{r, message=FALSE, fig.cap="5 Mapa de profundidade do solum predito pelo modelo floresta aleatória"}
+```{r, message=FALSE, warning=FALSE, fig.cap="5 Mapa de profundidade do solum predito pelo modelo floresta aleatória"}
 beginCluster()
 prediction <- 
   clusterR(brick(DECLI, ELEV, Sitio), raster::predict, 
            args = list(model = rf_fit, type = "raw", index = 1))
 endCluster()
 plot(prediction, main = 'Mapa predito de profundidade do solum (dm)')
+na.exclude(prediction)
 ```
 
 #Modelagem geoestatística
@@ -273,21 +274,19 @@ lines(vario_fit, col = "blue")
 lines(vario_fit_error, col = "red")
 ```
 
+criado o grid de predição
 
 ```{r}
-grid <- sp::spsample(ProdutividadePistola, 10000, type = 'regular')
-colnames(grid@coords) <- colnames(pontos@coords)
+newdata <- sp::spsample(ProdutividadePistola, 10000, type = 'regular')
 ```
 
+criado o multilayer
 ```{r}
 grid$PFprediction <- raster::extract(prediction, grid)
-
-prediction@data
-
 grid<- 
   sp::SpatialPointsDataFrame(
     coords = grid@coords, 
-    data = data.frame(grid),
+    data = data.frame(grid$PFprediction),
     proj4string = grid@proj4string)
 colnames(grid@coords) <- colnames(pontos@coords)
 ```
@@ -296,14 +295,12 @@ Argumento type: fazer a predição do sinal "signal" z, "response" se for y ou e
 se quiser predizer erro de medida, y = z + e, então response - signal = erro
 se tendência - predito = componente aleatório
 
-
 Usar control.predict.georob(extended.output = TRUE)
 ```{r}
 pred_ponto <- predict(vario_fit_error, newdata = grid, control = georob::control.predict.georob(extended.output = TRUE))
 sp::gridded(pred_ponto) <- TRUE
 sp::spplot(pred_ponto)
 ```
-
 
 ```{r}
 pred_ponto <- predict(vario_fit_error, newdata = grid, control = georob::control.predict.georob(extended.output = TRUE))
@@ -354,6 +351,9 @@ Considerei como efeitos fixos da variação da h a predição da profundidade do
 
 ##Ajuste do variograma amostral
 
+O variograma amostral foram computado através da função `georob::sample.variogram(method"metheron"`. O estimador para semivariãncia foi Metheron (método dos momentos).
+Para a obtenção dos parâmetros foi utilizado um corte de 50% da distância máxima entre os pontos, armazenada no objeto `distmax`, excluindo os pares de longo alcance.
+
 ```{r fig.asp=1, fig.width=7, fig.height=7}
 distmax <-dist(pontos@coords) %>% max() /2
 
@@ -361,19 +361,7 @@ limites <- seq(0, distmax, length.out = 20)
 vario<- georob::sample.variogram(h ~ DECLI,
     data= pontos, locations = ~ X + Y, lag.dist.def = limites, estimator = "matheron") %>%
   plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE)
-
 ```
-
-```{r}
-lags <- seq(0, distmax, length.out = 12)
-georob::sample.variogram(
- h ~ DECLI, data = pontos, locations = ~ X + Y, lag.dist.def = lags,
-  xy.angle.def = c(0, 22.5, 67.5, 112.5, 157.5, 180)) %>% 
-    plot(type = "b", ylab = 'Semivariância', xlab = 'Distância de separação (km)')
-```
-
-Avaliada a evolução da semivariância nas diferentes direções, há evidência da existência de estruturas de autocorrelação espacial dependentes da direção, então o processo espacial é anisotrópico.
-Porém, assumi a isotropia do processo espacial e o semivariograma amostral gerado foi independente da direção.
 
 Ajustei ao variograma amostral um modelo exponencial do variograma usando o método dos quadrados mínimos não-lineares ponderados, com ponderação definida conforme o método de Cressie. O processo de estimativa dos parâmetros do modelo exponencial do variograma foi conduzido via otimização usando a função stats::optim(method = "BFGS").
 
@@ -383,8 +371,6 @@ produzidos pelo otimizador a cada 10 iterações:
 vario_fit <- 
   georob::fit.variogram.model(
   vario, variogram.model = 'RMexp', param = c(variance = 9, nugget = 2, scale = 7), weighting.method = "cressie", method = "BFGS")
-
-
 summary(vario_fit)
 ```
 
@@ -393,25 +379,6 @@ plot(vario, xlab = 'Distância de separação (m)', ylab = 'Semivariância')
 lines(vario_fit, col = "red", lty = 'dashed')
 ```
 
-Na geoestatística clássica, a variância não explicada é expressa em um único parâmetro `nugget`. Porém, no modelo linear misto podemos separar o parâmetro nugget em dois componentes: a variãncia devida aos erros de medida, modelada pelo parâmetro `nugget` e variância devida à variação espacial em pequena escala, modelada pelo parâmetro `snugget`.
-Considerando que durante a obteção dos dados de campo as informações de PF os valores foram arredondadas pelas em decímetros, considerei que a variância do erro de medida é igual a 0.5, ou seja, 62% do parâmetro `nugget`. A variância restante foi atribuída a variação espacial não auto-correlacionada espacialmente - não capturada pelo plano amostral `snugget`.
-
-
-```{r}
-vario_fit_error <- georob::georob(
-   h ~ DECLI, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
- param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
-           nugget = vario_fit$variogram.object[[1]]$param[['nugget']]*0.66,
-           snugget = vario_fit$variogram.object[[1]]$param[['nugget']]*0.33,
-           scale = vario_fit$variogram.object[[1]]$param[['scale']]),
- fit.param = georob::default.fit.param(nugget = FALSE, snugget = FALSE),
- tuning.psi = 1000, control = georob::control.georob(initial.fixef = 'lm'))
-summary(vario_fit_error)
-```
-```{r}
-plot(vario)
-lines(vario_fit_error)
-```
 
 
 CRIAR O GRID: Suporte de predição pontual
