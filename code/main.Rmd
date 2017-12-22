@@ -207,6 +207,9 @@ prediction <-
            args = list(model = rf_fit, type = "raw", index = 1))
 endCluster()
 plot(prediction, main = 'Mapa predito de profundidade do solum (dm)')
+```
+
+```{r}
 na.exclude(prediction)
 ```
 
@@ -277,16 +280,17 @@ lines(vario_fit_error, col = "red")
 criado o grid de predição
 
 ```{r}
-newdata <- sp::spsample(ProdutividadePistola, 10000, type = 'regular')
+grid <- sp::spsample(ProdutividadePistola, 10000, type = 'regular')
 ```
 
 criado o multilayer
 ```{r}
-grid$PFprediction <- raster::extract(prediction, grid)
+grid$rf <- raster::extract(prediction, grid)
+
 grid<- 
   sp::SpatialPointsDataFrame(
     coords = grid@coords, 
-    data = data.frame(grid$PFprediction),
+    data = data.frame(grid),
     proj4string = grid@proj4string)
 colnames(grid@coords) <- colnames(pontos@coords)
 ```
@@ -296,17 +300,23 @@ se quiser predizer erro de medida, y = z + e, então response - signal = erro
 se tendência - predito = componente aleatório
 
 Usar control.predict.georob(extended.output = TRUE)
+
 ```{r}
-pred_ponto <- predict(vario_fit_error, newdata = grid, control = georob::control.predict.georob(extended.output = TRUE))
+#predição
+pred_ponto <- predict(
+  vario_fit_error, newdata = grid, type= "response", signif = 0.95,
+  control = georob::control.predict.georob(extended.output = TRUE))
 sp::gridded(pred_ponto) <- TRUE
-sp::spplot(pred_ponto)
+plot(pred_ponto)
 ```
+
 
 ```{r}
 pred_ponto <- predict(vario_fit_error, newdata = grid, control = georob::control.predict.georob(extended.output = TRUE))
 sp::gridded(pred_ponto) <- TRUE
 sp::spplot(pred_ponto)
 ```
+
 
 ```{r}
 at <- pred_ponto@data[, c("pred", "lower", "upper")] %>% range()
@@ -340,98 +350,10 @@ summary(validacao)
 plot(validacao)
 ```
 
-
-#Parte II - Modelagem geoestatística da Altura das árvores
-
-##Modelo linear misto de variação espacial
-
-###Modelos fixos
-
-Considerei como efeitos fixos da variação da h a predição da profundidade do solum via floresta aleatória.
-
-##Ajuste do variograma amostral
-
-O variograma amostral foram computado através da função `georob::sample.variogram(method"metheron"`. O estimador para semivariãncia foi Metheron (método dos momentos).
-Para a obtenção dos parâmetros foi utilizado um corte de 50% da distância máxima entre os pontos, armazenada no objeto `distmax`, excluindo os pares de longo alcance.
-
-```{r fig.asp=1, fig.width=7, fig.height=7}
-distmax <-dist(pontos@coords) %>% max() /2
-
-limites <- seq(0, distmax, length.out = 20)
-vario<- georob::sample.variogram(h ~ DECLI,
-    data= pontos, locations = ~ X + Y, lag.dist.def = limites, estimator = "matheron") %>%
-  plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE)
-```
-
-Ajustei ao variograma amostral um modelo exponencial do variograma usando o método dos quadrados mínimos não-lineares ponderados, com ponderação definida conforme o método de Cressie. O processo de estimativa dos parâmetros do modelo exponencial do variograma foi conduzido via otimização usando a função stats::optim(method = "BFGS").
-
-produzidos pelo otimizador a cada 10 iterações:
+Análise de variância com DIC, considerando o índice de sítio como tratamento.
+De acordo com o teste de Shapiro-Wilk a 5% de significancia, os residuos podem ser considerados normais.
+De acordo com o teste F, as medias nao podem ser consideradas diferentes.
 
 ```{r}
-vario_fit <- 
-  georob::fit.variogram.model(
-  vario, variogram.model = 'RMexp', param = c(variance = 9, nugget = 2, scale = 7), weighting.method = "cressie", method = "BFGS")
-summary(vario_fit)
+dic(pontos$Sitio,pontos$PFd, mcomp="tukey")
 ```
-
-```{r, ASP = 1}
-plot(vario, xlab = 'Distância de separação (m)', ylab = 'Semivariância')
-lines(vario_fit, col = "red", lty = 'dashed')
-```
-
-
-
-CRIAR O GRID: Suporte de predição pontual
- 
-```{r}
-grid <- sp::spsample(ProdutividadePistola, 10000, type = 'regular')
-colnames(grid@coords) <- colnames(pontos@coords)
-```
-
-```{r}
-grid$DECLI <- raster::extract(DECLI, grid)
-grid
-```
-
-```{r}
-grid <- 
-  sp::SpatialPointsDataFrame(
-    coords = grid@coords, 
-    data = data.frame(grid),
-    proj4string = grid@proj4string)
-colnames(grid@coords) <- colnames(pontos@coords)
-```
-
-```{r}
-pred_ponto <- predict(vario_fit_error, newdata = grid, control = georob::control.predict.georob(extended.output = TRUE))
-sp::gridded(pred_ponto) <- TRUE
-sp::spplot(pred_ponto)
-```
-
-
-Argumento type: fazer a predição do sinal "signal" z, "response" se for y ou efeitos fixos "trend"
-se quiser predizer erro de medida, y = z + e, então response - signal = erro
-se tendência - predito = componente aleatório
-
-
-Usar control.predict.georob(extended.output = TRUE)
-
-```{r}
-pred_ponto <- predict(
-  vario_fit_error, newdata = grid, type= "response", signif = 0.95,
-  control = georob::control.predict.georob(extended.output = TRUE))
-sp::gridded(pred_ponto) <- TRUE
-str(pred_ponto)
-
-spplot(pred_ponto)
-```
-
-```{r}
-at <- pred_ponto@data[, c("pred", "lower", "upper")] %>% range()
-sp::spplot(pred_ponto, zcol = c("lower", "pred", "upper"), main = "prediction")
-```
-
-```{r}
-sp::spplot(pred_ponto, zcol = 'se', main = "SE")
-```
-
