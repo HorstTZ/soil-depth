@@ -53,7 +53,7 @@ knitr::include_graphics('../docs/figura1.png')
 
 A coleta de dados foi realizada em 102 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs::clhs()`. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade tipográfico, nivel base da rede de drenagem e declividade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
-Em cada ponto amostral foi medimos a profundidade do solum (PF) e a altura total das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
+Em cada ponto amostral medimos a profundidade do solum (PF) e a altura total das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
 
 Para representar a altura das árvores utilizamos o valor médio dos quatro indivíduos de *Pinus taeda* mais próximos de cada ponto amostral. Portanto, considerando o espaçamento existente entre os indíviuos, cada ponto de amostragem representa uma área de aproximadamente 100 m^2^ no campo.
 
@@ -67,7 +67,7 @@ sp :: proj4string(pontos) <- wgs84utm22s
 pontos <- sp :: spTransform(pontos, wgs84utm22s)
 ```
 
-Com uma análise preliminar avaliei a distribuição de freqüências dos dados de profundidade do solum e altura das árvores. 
+Com uma análise preliminar avaliei a distribuição de freqüências dos dados de profundidade do solum. 
 Apesar das amostras de profundidade do solum apresentarem uma distribuição bimodal (FIgura 2), visando ao atendimento de restrições teóricas ao emprego da geoestatística, assumi que os dados provém de uma distribuição normal.
 
 ```{r, echo = FALSE, fig.asp = 1, fig.cap="2 Histograma de frequências da profundidade do solum"}
@@ -81,20 +81,7 @@ yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
     graphics::rug((pontos$PFd), col="red")
      box()
 ```
-Os dados de altura da árvores apresentaram uma distribuição de frequências próxima a distribuição normal (Figura 3)
 
-```{r, echo = FALSE, fig.asp = 1, fig.cap="3 Histograma de frequências da profundidade do solum"}
-ex2 <- graphics::hist(pontos$h, breaks=10, xlab="", col="grey90", cex.axis=1,
-          xlim=c(23,38),  ylim=c(0,16),ylab="",main="") 
-    xfit<-base::seq(min(pontos$h),max(pontos$h), length=50) 
-    yfit<-stats::dnorm(xfit,mean=mean(pontos$h),sd=sd(pontos$h))
-   yfit<-  yfit*diff(ex2$mids[1:2])*length(pontos$h) 
-    lines(xfit, yfit, col="red", lwd=2) 
-    mtext("Frequência",line=2.6, side=2, cex=1) 
-    mtext("h (m)",line=2.6, side=1, cex=1) 
-    graphics::rug((pontos$h), col="red")
-     box()
-```
 ##Modelo geoestatístico
 
 Para modelagem geoestatística dos dados foi utilizado o modelo linear misto de variação espacial $y(\boldsymbol{s}_i)$, denotado por
@@ -116,9 +103,11 @@ $\varepsilon(\boldsymbol{s}_i)$ é um erro (ou ruído), descrito por uma distrib
 
 Defini o efeito fixo do modelo ($\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$) como sendo a profundidade do solum predita via floresta aleatória.
 
+####Predição via floresta aleatória
+
 As covariáveis utilizadas na predição via floresta aleatória foram **covariáveis topográficas** e uma **covariável de produção**.
 
-####Covariáveis topográficas
+#####Covariáveis topográficas
 
 As covariáveis topográfricas foram derivadas do modelo digital de elevação disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para resolução espacial de 10 metros utilizando a ferramenta *reamostragem* no software SAGA GIS.
 
@@ -148,7 +137,7 @@ pontos$TWI <- raster::extract(TWI, pontos)
 pontos$VD <- raster::extract(VD, pontos)
 ```
 
-####Covariável de produção
+#####Covariável de produção
 
 Além dos atributos de terreno, foi utilizado um índice de produtividade disponibilizado pela empresa como variável preditora do modelo floresta aleatória.
 
@@ -181,7 +170,7 @@ sp::spplot(
 latticeExtra::as.layer()
 ```
 
-####Predição via floresta aleatória
+#####Construção do modelo de predição e predição espacial
 
 Foi construido um modelo de predição armazenado no objeto `rf_fit` criado através da função `carret::train(method = "rf")`. As variáveis topograficas e a variável de produtividade foram utilizadas como covariávies preditoras. Todas as informações foram extraídas do objeto espacial `pontos`.
 
