@@ -36,78 +36,107 @@ library(caret)
 library(randomForest)
 ```
 
-#Objetivo:
+# Objetivo
+
 Realizar a modelagem geoestatística da profundidade do solum área de produção silvicultural
 
-##Caracterização da área de estudo
+<!-- Não entendi porque todos as seções abaixo são subseções de 'Objetivo'.  -->
+## Caracterização da área de estudo
 
 Os dados que utilizei para este trabalho são provenientes de um povoamento florestal de 108 ha de *Pinus taeda* L. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
 
+<!-- 'topossequência clássica'. Não me parece uma boa definição científica. Exceto se estiver consolidado em livros de pedologia. -->
 A área possui Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Háplicos e Cambissolos Húmicos, Latossolos Vermelhos e Gleissolos Melânicos, os quais representam a topossequência clássica da área de estudo (Figura 1c). Conforme as tendências observadas no campo, em locais de relevo plano ou suavemente ondulado com boa drenagem estão solos profundos com sequência de horizontes A-Bw (Latossolos), em condições de má drenagem, ocorrem solos com a sequência de horizonte A-Cg (Gleissolos). Nos relevos ondulado ou fortemente ondulado, predominam solos rasos com a sequência de horizontes A ou A-Bi (Neossolos e Cambissolos).
 
-```{r echo=FALSE, fig.cap = "Localização da área de estudo no município de Campo Belo do Sul, Estado de Santa Catarina (SC), Brasil (a) e área ampliada com modelo digital de elevação e distribuição dos pontos amostrais (b). Relação da classe de solo e altura das árvores de uma Topossequência típica da área de estudo (c)."}
+<!-- Fzer referência à figura no texto. -->
+```{r, echo=FALSE, fig.cap = "Localização da área de estudo no município de Campo Belo do Sul, Estado de Santa Catarina (SC), Brasil (a) e área ampliada com modelo digital de elevação e distribuição dos pontos amostrais (b). Relação da classe de solo e altura das árvores de uma Topossequência típica da área de estudo (c)."}
 knitr::include_graphics('../docs/figura1.png')
 ```
 
-##Amostragem
+## Amostragem
 
-A coleta de dados foi realizada em 94 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs::clhs()`. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade tipográfico, nivel base da rede de drenagem e declividade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
+<!-- A figura deve aparecer após a primeira referência -->
+A coleta de dados foi realizada em 94 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs` do pacote **clhs** para R. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade topográfico, nivel base da rede de drenagem e declividade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
+<!-- Acho melhor manter somente a profundidade do solum, explicando a questão do suporte amostral. -->
 Em cada ponto amostral foi medida a profundidade do solum (PF) e a altura total das árvores (h). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
 
 Para representar a altura das árvores utilizamos o valor médio dos quatro indivíduos de *Pinus taeda* mais próximos de cada ponto amostral. Portanto, considerando o espaçamento existente entre os indíviuos, cada ponto de amostragem representa uma área de aproximadamente 100 m^2^ no campo. Apesar do suporte amostral ser areal, considerei-os como sendo em ponto.
+
 
 Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsDataFrame` com as coordenadas projetadas em WGS84.
 
 ```{r}
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
-sp :: coordinates(pontos) <- c('X' , 'Y')
+sp::coordinates(pontos) <- c('X' , 'Y')
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
-sp :: proj4string(pontos) <- wgs84utm22s
-pontos <- sp :: spTransform(pontos, wgs84utm22s)
+sp::proj4string(pontos) <- wgs84utm22s
+pontos <- sp::spTransform(pontos, wgs84utm22s)
+# ASR: Não estou entendendo a operação feita aqui. Na linha 73 é definido o WGS 84 zona 22 S como SRC. Em 
+# seguida, na linha 74 o SRC é transaformado para exatamente o mesmo SCR. Favor verificar.
 ```
 
 Como uma análise preliminar avaliei a distribuição de frequências dos dados de profundidade do solum. 
 Apesar das amostras apresentarem uma distribuição bimodal (Figura 2), visando atender aos pressupostos teóricos da geoestatística, assumi que os dados provém de uma distribuição normal.
+<!-- Não há necessidade de assumir que os dados venham de uma distribuição normal. Ademais, a seção sobre 
+amostragem não parece o local mais adequado para falar sobre isso. Favor rever. -->
 
 ```{r, echo = FALSE, fig.asp = 1, fig.cap=" Histograma de frequências da profundidade do solum"}
 ex <- hist(pontos$PFd, breaks = 10, xlab = "", col = "grey90", cex.axis = 1, xlim = c(1, 10), ylim = c(0, 37), ylab = "", main = "")
 xfit <- seq(min(pontos$PFd), max(pontos$PFd), length = 50)
 yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
-   yfit<-  yfit*diff(ex$mids[1:2])*length(pontos$PFd) 
-    lines(xfit, yfit, col="red", lwd=2) 
-    mtext("Frequência",line=2.6, side=2, cex=1) 
-    mtext("PF (dm)",line=2.6, side=1, cex=1) 
-    graphics::rug((pontos$PFd), col="red")
-     box()
+# Antes
+   # yfit<-  yfit*diff(ex$mids[1:2])*length(pontos$PFd) 
+    # lines(xfit, yfit, col="red", lwd=2) 
+    # mtext("Frequência",line=2.6, side=2, cex=1) 
+    # mtext("PF (dm)",line=2.6, side=1, cex=1) 
+    # graphics::rug((pontos$PFd), col="red")
+     # box()
+# Depois
+yfit <- yfit * diff(ex$mids[1:2]) * length(pontos$PFd)
+lines(xfit, yfit, col = "red", lwd = 2)
+mtext("Frequência", line = 2.6, side = 2, cex = 1) # experimente usar o argumento ylab da função hist
+mtext("PF (dm)", line = 2.6, side = 1, cex = 1) # experimente usar o argumento xlab da função hist
+rug(pontos$PFd, col = "red")
+box()
 ```
 
-#Modelagem geoestatística da profundidade do  Solum
+```{r, fig.asp=1}
+# Além da distribuição de frequência (acima), é preciso verificar onde estão os dados no espaço.
+mapview(pontos, zcol = "PFd")
+```
 
-##Modelo linear misto de variação espacial
+# Modelagem geoestatística da profundidade do  Solum
 
-Para modelagem geoestatística dos dados foi utilizado o modelo linear misto de variação espacial $y(\boldsymbol{s}_i)$, denotado por
+## Modelo linear misto de variação espacial
+
+Para modelagem geoestatística dos dados foi utilizado o modelo linear misto de variação espacial denotado por
+
 $$Y(\boldsymbol{s}_i) = Z(\boldsymbol{s}_i) + \varepsilon(\boldsymbol{s}_i) = \boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta} + B(\boldsymbol{s}_i) + \varepsilon(\boldsymbol{s}_i)$$
+
 Para utilizar esse modelo foi necessário supor que os dados são uma realização de um campo aleatório $Y(\boldsymbol{s}_i)$ com distribuição normal que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
+<!-- Ao invés de efeitos aleatórios é melhor dizer 'efeitos estocásticos' para evitar confusão com o termo do erro -->
 
 $Z(\boldsymbol{s}_i)$ ou sinal possui dois componentes. O primeiro (efeito fixo) $\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$ representa os efeitos de origem desterminística, que relaciona a dependência entre a variável e as covariáveis.
 
 O segundo componente do sinal (efeito aleatório), $B(\boldsymbol{s}_i)$, um campo aleatório Gaussiano estacionário não-observável, descrito por sua função de média e função de covariância.
 
-$\varepsilon(\boldsymbol{s}_i)$ é o erro (ou ruído), descrito por uma distribuição Gaussina de probabilidade, cujo parâmetro desconhecido de escala é $\tau$. 
+$\varepsilon(\boldsymbol{s}_i)$ é o erro (ou ruído), descrito por uma distribuição Gaussina de probabilidade, cujo parâmetro desconhecido de escala é $\tau$.
 
-###Efeito fixo
+### Efeito fixo
 
+<!-- Isso significa que os efeitos fixos foram tomados como sendo variáveis (não-constantes) na área. -->
 Defini o efeito fixo do modelo ($\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$) como sendo a profundidade do solum predita via floresta aleatória.
 
-####Predição via floresta aleatória
+#### Predição via floresta aleatória
 
 As covariáveis utilizadas na predição via floresta aleatória foram **covariáveis topográficas** e uma **covariável de produção**.
 
-#####Covariáveis topográficas
+##### Covariáveis topográficas
 
 As covariáveis topográfricas foram derivadas do modelo digital de elevação disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para resolução espacial de 10 metros utilizando a ferramenta *reamostragem* no software SAGA GIS.
 
+<!-- Os dados estão armazenados no formato tif. RasterLayer é apenas um formato de objeto do R. -->
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados em objetos no formato `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
@@ -121,7 +150,7 @@ VD <- raster::raster("../data/Covars/VD.tif")
 par(mfrow=c(2,2))
 plot(ELEV, main='Elevação') 
 plot(DECLI,main='Declividade')
-plot(TWI, main='Índice de umidade topográfico')
+plot(TWI, main='Índice de umidade topográfica')
 plot(VD, main='Profundidade do vale')
 ```
 
@@ -134,12 +163,12 @@ pontos$TWI <- raster::extract(TWI, pontos)
 pontos$VD <- raster::extract(VD, pontos)
 ```
 
-#####Covariável de produção
+##### Covariável de produção
 
 Além dos atributos de terreno, foi utilizado um índice de produtividade disponibilizado pela empresa.
 
 Esses índices são utilizados para ordenamento da produção e provém da amostragem de parcelas fixas. A área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local.
-Cada PIC é classificada em função da média de altura das 100 árvores de maior perÍmetro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrimentos anuais é estabelecido o índices de sítio (Sitio). Esse índice então é então atribuido à todo o talhão.
+Cada PIC é classificada em função da média de altura das 100 árvores de maior perímetro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrementos anuais é estabelecido o índices de sítio (Sitio). Esse índice então é então atribuido à todo o talhão.
 
 As parcelas da área são classificadas em 4 níveis, em que 1 corresponde a melhor e 4 a pior produtividade (Figura 4).
 
@@ -167,22 +196,35 @@ sp::spplot(
 latticeExtra::as.layer()
 ```
 
-#####Construção do modelo de predição e predição espacial
+<!-- Talvez cinco níveis seja um pouco exagerado. -->
+##### Construção do modelo de predição e predição espacial
 
-Foi construído um modelo de predição através da função `carret::train(method = "rf")` que foi armazenado no objeto `rf_fit`. As variáveis topograficas e a variável de produtividade foram utilizadas como covariávies preditoras. Todas as informações foram utilizadas foram extraídas do objeto espacial `pontos`.
+Foi construído um modelo de predição através da função `caret::train(method = "rf")` que foi armazenado no objeto `rf_fit`. As variáveis topograficas e a variável de produtividade foram utilizadas como covariávies preditoras. Todas as informações foram utilizadas foram extraídas do objeto espacial `pontos`.
 
 ```{r}
-rf_fit <- caret::train((PFd ~ DECLI + ELEV + Sitio), data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
+# Correlação entre covariáveis e profundidade do solo
+# Parece não haver correlação alguma (ou muito pequena). Não há correlação com o sítio.
+lm(PFd ~ DECLI + ELEV + TWI + VD + Sitio, data = pontos@data) %>% summary()
+```
+
+
+```{r}
+rf_fit <- caret::train(PFd ~ DECLI + ELEV + Sitio, data = pontos@data, method = "rf", tuneLength = 1, ntree = 1000, importance = TRUE, na.action = na.omit, trControl = trainControl("LOOCV"))
 rf_fit
 ```
 
 O resultado da predição foi armazenado na coluna `rf` no objeto espacial `pontos` e o ajuste entre os dados preditos e observados estão na figura 5.
 
-```{r lm-residuos, fig.cap=" Ajuste de dados preditos e observados"}
+```{r lm-residuos, fig.cap=" Ajuste de dados preditos e observados", fig.asp=1}
 par <- par(mfrow = c(2,2))
 pontos@data$rf <- rf_fit$finalModel$predicted
 lm(PFd ~ rf, data = pontos) %>% plot()
 ```
+
+```{r}
+lm(PFd ~ rf, data = pontos) %>% summary()
+```
+
 
 O modelo `rf_fit` foi utilizado para fazer a predição espacial em toda área de estudo através da função `raster::predict` (Figura 6).
 
@@ -198,11 +240,13 @@ plot(prediction, main = 'Mapa predito de profundidade do solum (dm)')
 O RasterLayer `Sitio` possuia alguns `NA` (pixel sem valor), logo, a predição não foi realizada nesses pontos. Assim, excluí do RasterLayer `prediction` todos os pixels sem valor, através da função `na.exclude`.
 
 O resultado dessa predição espacial foi utilizado como efeito fixo do modelo linear misto de variação.
+
 ```{r}
+# Da maneira como está, este comando não possui qualquer efeito. 
 na.exclude(prediction)
 ```
 
-##Variograma amostral
+## Variograma amostral
 
 O variograma amostral (Figura 7) foi computado através da função `georob::sample.variogram`. O estimador para semivariãncia foi Metheron (método dos momentos).
 Para a obtenção dos parâmetros utilizei um corte de 66% da distância máxima entre os pontos, armazenada no objeto `distmax`, excluindo os pares de longo alcance.
@@ -213,10 +257,10 @@ distmax <-dist(pontos@coords) %>% max() /3
 limites <- seq(0, distmax, length.out = 20)
 vario<- georob::sample.variogram(PFd ~ rf,
     data= pontos, locations = ~ X + Y, lag.dist.def = limites, estimator = "matheron") %>%
-  plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE, main = "Semivariograma")
+plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE, main = "Semivariograma")
 ```
 
-##Ajuste da função que descreve o varigrama amostral
+## Ajuste da função que descreve o varigrama amostral
 
 O método de ajuste empregado no variograma amostral foi o de quadrados mínimos não-lineares ponderados, com ajuste de um modelo exponencial, com ponderação definida conforme o método de "Cressie". O processo de estimativa dos parâmetros do modelo exponencial do variograma foi conduzido via otimização usando a função `stats::optim(method = "BFGS")`.
 A função resultante desse processo foi armazenada no objeto `vario_fit`.
@@ -230,7 +274,7 @@ summary(vario_fit)
 
 O ajuste do modelo exponencial ao variograma amostral é mostrado na Figura 8. A curva ajustada passa próximo ao centro de massa dos vinte pontos do variograma amostral.
 
-```{r, asp = 1, fig.cap=" Variograma amostral (em preto) e função exponencial a ele ajustado (vermelho)"}
+```{r, fig.asp = 1, fig.cap=" Variograma amostral (em preto) e função exponencial a ele ajustado (vermelho)"}
 plot(vario, xlab = 'Distância de separação (m)', ylab = 'Semivariância', annotate.npairs = TRUE)
 lines(vario_fit, col = "red", lty = 'dashed')
 ```
@@ -241,13 +285,15 @@ Assim, foi possível discretizar a variância não explicada em erro de medida c
 A função resultante desse processo foi armazenado no objeto `vario_fit_error`.
 
 ```{r, warning=FALSE}
+# Melhor usar um objeto para definir o valor do efeito pepita
+nugget <- 0.25
 vario_fit_error <- georob::georob(
    PFd ~ rf, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
  param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
-           nugget = 0.25,
-           snugget = vario_fit$variogram.object[[1]]$param[['nugget']]-0.25,
+           nugget = nugget,
+           snugget = vario_fit$variogram.object[[1]]$param[['nugget']] - nugget,
            scale = vario_fit$variogram.object[[1]]$param[['scale']]),
- fit.param = georob::default.fit.param(nugget = FALSE, snugget = FALSE),
+ fit.param = georob::default.fit.param(nugget = FALSE, snugget = TRUE),
  tuning.psi = 1000, control = georob::control.georob(initial.fixef = 'lm'))
 summary(vario_fit_error)
 ```
@@ -276,7 +322,7 @@ grid<-
 colnames(grid@coords) <- colnames(pontos@coords)
 ```
 
-##Predição espacial da resposta
+## Predição espacial da resposta
 
 ```{r,warning=FALSE,  fig.cap= "Mapas de predição - saída extendida do georob"}
 pred_ponto <- predict(
@@ -291,7 +337,7 @@ spplot(pred_ponto)
 sp::spplot(pred_ponto, zcol = 'pred', main = "Mapa predito de profundidade do solum (dm)")
 ```
 
-###Cross-validation
+### Cross-validation
 
 ```{r}
 validacao <- georob::cv(vario_fit_error, nset = 93)
