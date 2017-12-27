@@ -41,7 +41,7 @@ library(randomForest)
 Realizar a modelagem geoestatística da profundidade do solum área de produção silvicultural
 
 <!-- Não entendi porque todos as seções abaixo são subseções de 'Objetivo'.  -->
-## Caracterização da área de estudo
+# Caracterização da área de estudo
 
 Os dados que utilizei para este trabalho são provenientes de um povoamento florestal de 108 ha de *Pinus taeda* L. A área pertence ao município de Campo Belo do Sul, região serrana do Estado de Santa Catarina, Brasil. O clima é do tipo Cfb, mesotérmico, subtropical úmido e com precipitação média de 1.647 mm com chuvas bem distribuídas no ano. A geologia regional é constituída por uma sequência vulcânica de rochas ácidas da Formação Serra Geral, com predomínio de riodacito.
 
@@ -53,7 +53,7 @@ A área possui Neossolos Litólicos e Neossolos Regolíticos, Cambissolos Hápli
 knitr::include_graphics('../docs/figura1.png')
 ```
 
-## Amostragem
+# Amostragem
 
 <!-- A figura deve aparecer após a primeira referência -->
 A coleta de dados foi realizada em 94 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs` do pacote **clhs** para R. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade topográfico, nivel base da rede de drenagem e declividade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
@@ -68,12 +68,10 @@ Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsData
 
 ```{r}
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
+pontos$PFd <- pontos$PF/10
 sp::coordinates(pontos) <- c('X' , 'Y')
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
 sp::proj4string(pontos) <- wgs84utm22s
-pontos <- sp::spTransform(pontos, wgs84utm22s)
-# ASR: Não estou entendendo a operação feita aqui. Na linha 73 é definido o WGS 84 zona 22 S como SRC. Em 
-# seguida, na linha 74 o SRC é transaformado para exatamente o mesmo SCR. Favor verificar.
 ```
 
 Como uma análise preliminar avaliei a distribuição de frequências dos dados de profundidade do solum. 
