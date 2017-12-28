@@ -74,10 +74,16 @@ wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +uni
 sp::proj4string(pontos) <- wgs84utm22s
 ```
 
-Como uma análise preliminar avaliei a distribuição de frequências dos dados de profundidade do solum. 
-Apesar das amostras apresentarem uma distribuição bimodal (Figura 2), visando atender aos pressupostos teóricos da geoestatística, assumi que os dados provém de uma distribuição normal.
-<!-- Não há necessidade de assumir que os dados venham de uma distribuição normal. Ademais, a seção sobre 
-amostragem não parece o local mais adequado para falar sobre isso. Favor rever. -->
+```{r, fig.asp=1}
+# Além da distribuição de frequência (acima), é preciso verificar onde estão os dados no espaço.
+mapview(pontos, zcol = "PFd")
+```
+
+# Modelagem geoestatística da profundidade do  Solum
+
+##Dados de profundidade do solum
+
+Como uma análise preliminar avaliei a distribuição de frequências dos dados de profundidade do solum (Figura 2). Os dados apresentam uma distribuição bimodal, entre 1 e 10 e média de 5,86 dm.
 
 ```{r, echo = FALSE, fig.asp = 1, fig.cap=" Histograma de frequências da profundidade do solum"}
 ex <- hist(pontos$PFd, breaks = 10, xlab = "", col = "grey90", cex.axis = 1, xlim = c(1, 10), ylim = c(0, 37), ylab = "", main = "")
@@ -98,13 +104,9 @@ mtext("PF (dm)", line = 2.6, side = 1, cex = 1) # experimente usar o argumento x
 rug(pontos$PFd, col = "red")
 box()
 ```
-
-```{r, fig.asp=1}
-# Além da distribuição de frequência (acima), é preciso verificar onde estão os dados no espaço.
-mapview(pontos, zcol = "PFd")
+```{r}
+summary(pontos$PFd)
 ```
-
-# Modelagem geoestatística da profundidade do  Solum
 
 ## Modelo linear misto de variação espacial
 
@@ -112,8 +114,7 @@ Para modelagem geoestatística dos dados foi utilizado o modelo linear misto de 
 
 $$Y(\boldsymbol{s}_i) = Z(\boldsymbol{s}_i) + \varepsilon(\boldsymbol{s}_i) = \boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta} + B(\boldsymbol{s}_i) + \varepsilon(\boldsymbol{s}_i)$$
 
-Para utilizar esse modelo foi necessário supor que os dados são uma realização de um campo aleatório $Y(\boldsymbol{s}_i)$ com distribuição normal que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos aleatórios e erro aleatório independente.
-<!-- Ao invés de efeitos aleatórios é melhor dizer 'efeitos estocásticos' para evitar confusão com o termo do erro -->
+Para utilizar esse modelo foi necessário supor que os dados são uma realização de um campo aleatório $Y(\boldsymbol{s}_i)$ com distribuição normal que podem ser descritos como a combinação aditiva de efeitos fixos, efeitos estocásticos e erro aleatório independente.
 
 $Z(\boldsymbol{s}_i)$ ou sinal possui dois componentes. O primeiro (efeito fixo) $\boldsymbol{x}(\boldsymbol{s}_i)^\text{T}\boldsymbol{\beta}$ representa os efeitos de origem desterminística, que relaciona a dependência entre a variável e as covariáveis.
 
