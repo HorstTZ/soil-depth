@@ -317,9 +317,6 @@ Esse procedimento é repetido até que todos subconjuntos $k$ tenham sido utiliz
 
 Para isso utilizei a função `cv::georob`. Defini o número o número $k$ de subconjuntos em que o conjunto de dados `pontos` foi particionado definindo o parâmetro `nset = 101`. Assim, em cada etapa da validação 101 pontos foram utilizados para a validação e 1 para a calibração do modelo linear misto.
 
-Eficiência do modelo/quantidade de variância explicada:
-
-
 As medidas de qualidade dependentes do modelo obtidas foram:
 
 ```{r}
@@ -327,14 +324,11 @@ validacao <- georob::cv(vario_fit_error, nset = 101)
 summary(validacao)
 1 - sum((validacao$pred$data - validacao$pred$pred)^2) / sum((validacao$pred$data - mean(validacao$pred$data))^2)
 ```
+A medida de Erro médio ($ME$) aponta uma tendência do modelo em sobreestimar os valores de profundidade do solum, dados os valores negativos.
 
 ```{r}
 plot(validacao)
 ```
 
 Como os dados utilizados para a validação são os mesmo utilizados para validar o modelo, e, que as amostras foram obtidas intencionalmente, é provavel que esta avaliação seja otimista.
-
-A medida de Erro médio ($ME$) aponta uma tendência do modelo em sobreestimar os valores de profundidade do solum, dados os valores negativos.
-
-A razão média dos erros quadráticos ($MSSE$) é a razão entre a variância teórica, vinda da krigagem, e a variância calculada em função dos pontos de validação. O valor de $MSSE$ proximo de 1 indica que a variância teórica é realista.
 
