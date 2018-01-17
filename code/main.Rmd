@@ -15,18 +15,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, include=FALSE, warning=FALSE}
-rm(list = ls())
-# ASR: todos esses pacotes são usados?
 library(magrittr)
 library(dplyr)
-library(glue)
 library(lattice)
 library(latticeExtra)
 library(georob)
 library(sp)
 library(mapview)
 library(raster)
-library(rmarkdown)
 library(caret)
 library(randomForest)
 ```
@@ -59,6 +55,7 @@ Cada ponto de amostragem representa uma área de aproximadamente 100 m^2^ no cam
 Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsDataFrame` com as coordenadas projetadas em WGS84.
 
 ```{r}
+rm(list = ls())
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
 # ASR: Suponho que o correto seja arredondar os valores de profundidade. Do contrário é o mesmo que usar em 
 #     centímetros. Também suponho que seria importante explicar a razão desse procedimento.
@@ -93,16 +90,6 @@ mapview(pontos, zcol = "PFd")
 
 Como uma análise preliminar avaliei a distribuição de frequências dos dados de profundidade do solum (Figura 2). Os dados apresentam uma distribuição bimodal, com valores concentrados nas profundidades 1 e 10 dm. Essa concentração é um provável efeito da censura de dados na marca inferior, devido a precisão da medida no campo e nos superiores principalmente limitados pela altura total do instrumento utilizado (10 dm).
 
-```{r, echo = FALSE, fig.asp = 1, fig.cap=" Histograma de frequências da profundidade do solum"}
-ex <- hist(pontos$PFd, breaks = 10, xlab = "PF (dm)", col = "grey90", cex.axis = 1, xlim = c(1, 10), ylim = c(0, 37), ylab = "Frequência", main = "")
-xfit <- seq(min(pontos$PFd), max(pontos$PFd), length = 50)
-yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
-yfit <- yfit * diff(ex$mids[1:2]) * length(pontos$PFd)
-lines(xfit, yfit, col = "red", lwd = 2)
-rug(pontos$PFd, col = "red")
-box()
-```
-
 ```{r}
 summary(pontos$PFd)
 ```
@@ -113,7 +100,6 @@ histogram(pontos$PFd) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::l
 
 
 ## Modelo linear misto de variação espacial
-
 
 <!-- ASR: O objetivo do relatório é conter, além dos resultados das análises, um relato de sua experiência, sua forma de ver e entender o conteúdo e o que foi feito. Os parágrafos abaixo são, fundamentalmente, uma cópia modificada do texto do material de apoio. Não há muito sentido em incluir isso no seu relatório. Ademais, essa prática pode ser interpretada como plágio. Tome muito cuidado com isso no futuro. -->
 
@@ -131,9 +117,6 @@ $\varepsilon(\boldsymbol{s}_i)$ é o erro (ou ruído), descrito por uma distribu
 
 
 ### Efeito fixo
-
-<!-- ASR: Profundidade? Ademais, a verificação da relação linear não está clara. -->
-Para selecionar os efeitos fixos do modelo, verifiquei a relação linear entre as variáveis topográficas e de produtividade e a profundidade do solum.
 
 #### Covariáveis topográficas
 
@@ -155,8 +138,7 @@ par(mfrow=c(2,2))
 plot(ELEV, main='Elevação') 
 plot(DECLI,main='Declividade')
 plot(VD, main='Profundidade do vale')
-plot(TWI, main='Índice de umidade topográfica') # ASR: Não seria mais eficiente usar log(TWI)?
-#Pq seria mais eficiente?
+plot(TWI, main='Índice de umidade topográfica')
 ```
 
 A partir da função `raster::extract` extraí os valores de cada objeto na localização de cada observação contida no objeto espacial `pontos`.
@@ -216,14 +198,8 @@ sp::spplot(
 latticeExtra::as.layer()
 ```
 
-#### Avaliação da relação linear entre as variáveis
-
-<!-- ASR: A significância de um teste t para dados espaciais não deve ser considerada como critério para seleção/eliminação de covariáveis. Primeiro, devemos levar em conta o conhecimento pedológico. Por exemplo, essas covariáveis foram usadas para definir os locais de amostragem. Assim sendo devem ser usadas no modelo pois, de antemão, já fazem parte do modelo. Segundo, testes estatísticos devem levar em conta a autocorrelação espacial. -->
-Considerando que apenas a covariável `DECLI` apresenta uma correlação significativa com a profundidade do solum, considerei somente a declividade como variável de efeito fixo, não-constantes, na área.
-
 ```{r}
-# ASR: Usando TWI
-form <- PFd ~ DECLI + ELEV + VD + TWI + Sitio
+form <- PFd ~ DECLI + ELEV + VD + TWI
 lm(form, data = pontos@data) %>% summary()
 ```
 
@@ -233,6 +209,15 @@ O variograma amostral (Figura 7) foi computado através da função `georob::sam
 Para a obtenção dos parâmetros utilizei um corte de 66% da distância máxima entre os pontos, armazenada no objeto `distmax`, excluindo os pares de longa distãncia.
 
 <!-- ASR: Antes de computar o variograma omnidirecional, é importante verificar se há efeitos direcionais. -->
+
+```{r}
+distmax <-dist(pontos@coords) %>% max() / 3
+limites <- seq(0, distmax, length.out = 20)
+vario <- georob::sample.variogram(form,
+    data= pontos, locations = ~ X + Y, lag.dist.def = limites, xy.angle.def = c(0, 22.5, 67.5, 112.5, 157.5, 180), estimator = "matheron") %>%
+plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE, main = "Semivariograma")
+```
+
 ```{r fig.asp=1, fig.width=7, fig.height=7, fig.cap=" Variograma amostral"}
 distmax <-dist(pontos@coords) %>% max() / 3
 limites <- seq(0, distmax, length.out = 20)
@@ -250,7 +235,7 @@ A função resultante desse processo foi armazenada no objeto `vario_fit`.
 ```{r}
 vario_fit <- 
   georob::fit.variogram.model(
-  vario, variogram.model = 'RMexp', param = c(variance = 10, nugget = 5, scale = 70), weighting.method = "cressie", method = "BFGS")
+  vario, variogram.model = 'RMexp', param = c(variance = 10, nugget = 0.5, scale = 70), weighting.method = "cressie", method = "BFGS")
 summary(vario_fit)
 ```
 
@@ -268,7 +253,6 @@ Considerando que durante a obteção dos dados de campo as informações de prof
 Assim, foi possível discretizar a variância não explicada em erro de medida corresponde 0,25 do parâmetro `nugget`. A variância restante foi atribuída a variação espacial não auto-correlacionada espacialmente - não capturada pelo plano amostral `snugget`.
 A função resultante desse processo foi armazenado no objeto `vario_fit_error`.
 
-<!-- ASR: Compare o teste t abaixo com o teste t acima. Apesar do resultado, a eliminação de covariáveis é discutível pois elas fazem parte do modelo desde a definição dos locais de amostragem. -->
 ```{r, warning=FALSE}
 nugget <- 0.25
 vario_fit_error <- georob::georob(
@@ -295,9 +279,8 @@ A função `vario_fit_error` foi utilizada para a predição espacial.
   Para isso foi criado um grid de predição abrangendo a área de estudo. A partir da função `raster::extract` foram extraídos os valores do objeto `DECLI` e armazenados no novo conjunto de dados `grid`.
 
 ```{r}
-grid <- stack(DECLI, ELEV, TWI, VD, Sitio)
+grid <- stack(DECLI, ELEV, TWI, VD)
 grid <- as(grid, 'SpatialPointsDataFrame')
-grid$Sitio <- as.factor(grid$Sitio)
 colnames(grid@coords) <- colnames(pontos@coords)
 ```
 
@@ -341,7 +324,6 @@ nset <- length(pontos) - 1
 validacao <- georob::cv(vario_fit_error, nset = nset)
 summary(validacao)
 ```
-A medida de Erro médio ($ME$) aponta uma tendência do modelo em sobreestimar os valores de profundidade do solum, dados os valores negativos.
 
 ```{r}
 1 - sum((validacao$pred$data - validacao$pred$pred)^2) / sum((validacao$pred$data - mean(validacao$pred$data))^2)
@@ -351,6 +333,5 @@ A medida de Erro médio ($ME$) aponta uma tendência do modelo em sobreestimar o
 plot(validacao)
 ```
 
-<!-- ASR: Não sei se esse é o caso nesse estudo, haja vista que os resultados da validação cruzada são bastante ruins. Parece-me importante discutir os resultados sobre esse ponto de vista, ou seja, a razão das predições tão ruins para uma variável relativamente estável. -->
 Como os dados utilizados para a validação são os mesmo utilizados para validar o modelo, e, que as amostras foram obtidas intencionalmente, é provavel que esta avaliação seja otimista.
 
