@@ -15,18 +15,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r, include=FALSE, warning=FALSE}
-rm(list = ls())
-# ASR: todos esses pacotes são usados?
 library(magrittr)
 library(dplyr)
-library(glue)
 library(lattice)
 library(latticeExtra)
 library(georob)
 library(sp)
 library(mapview)
 library(raster)
-library(rmarkdown)
 library(caret)
 library(randomForest)
 ```
@@ -48,28 +44,39 @@ knitr::include_graphics('../docs/figura1.png')
 
 # Amostragem
 
-<!-- ASR: São 94 ou 102 pontos? -->
-
-A coleta de dados foi realizada em 94 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs` do pacote **clhs** para R. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade topográfico, nivel base da rede de drenagem e declividade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
+A coleta de dados foi realizada em 102 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs` do pacote **clhs** para R. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade topográfico, nivel base da rede de drenagem e declividade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
 Em cada ponto amostral foi medida a profundidade do solum (PF). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
 
-<!-- ASR: Suponho que seria importante explicar a razão dessa decisão. -->
+Como ferramenta para obtenção dos valores de profundidade foi utilizado um trado de 1 metro, graduado em decímetros. Assim, os valores estimados em centímetros no campo foram convertidos para decímetros e arredondados utilizando a função `round`.
+
 Cada ponto de amostragem representa uma área de aproximadamente 100 m^2^ no campo. Apesar do suporte amostral ser areal, considerei-os como sendo em ponto.
 
 Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsDataFrame` com as coordenadas projetadas em WGS84.
 
 ```{r}
+rm(list = ls())
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
 # ASR: Suponho que o correto seja arredondar os valores de profundidade. Do contrário é o mesmo que usar em 
 #     centímetros. Também suponho que seria importante explicar a razão desse procedimento.
-pontos$PFd <- pontos$PF / 10 %>% round
+
+# TZH: Entendo que os valores foram arredondados do campo. Todos os valores de profundidade foram tomados como sendo múltiplos de 0,5 dm. Na planilha original eles foram anotados como sendo em centímetros. Entendo que não é certo usar a medida de centímetro pela questão da precisão com que os números foram obtidos. O arredondamento que tu se refere é dos valores 1,5 e 5,5 para inteiros? Pq da forma que esta no script os valores não mudaram (nem usando o parâmetro digits = 0 da função round) por causa da precisão. Pode me explicar melhor?
+
+pontos$PFd <- pontos$PF / 10 %>% round()
 sp::coordinates(pontos) <- c('X' , 'Y')
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
 sp::proj4string(pontos) <- wgs84utm22s
 ```
 
-<!-- ASR: Me parece que a eliminação dos pontos amostrados fora das áreas de produção deveria ser feita aqui, logo no início do processamento. -->
+Os dados que estão em áreas de preservação permaneten, ou seja, fora das áreas produtivas foram omitidos e, permaneceram no conjunto de dados para esse trabalho 98 pontos.
+
+```{r}
+Sitio <- raster::raster("../data/Covars/Sitio.tif")
+Sitio <- as.factor(Sitio)
+sp::proj4string(Sitio) <- wgs84utm22s
+pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
+pontos <- pontos[!is.na(pontos$Sitio), ]
+```
 
 A localização dos pontos no espaço pode ser observada a seguir:
 
@@ -81,27 +88,18 @@ mapview(pontos, zcol = "PFd")
 
 ## Dados de profundidade do solum
 
-<!-- ASR: Quando a distribuição é bimodal faz mais sentido falar sobre as duas modas. A média é pouco informativa. Seria importante explicar a concentração de valores em 10 dm -- seria efeito da amostragem (dados censurados)? -->
-Como uma análise preliminar avaliei a distribuição de frequências dos dados de profundidade do solum (Figura 2). Os dados apresentam uma distribuição bimodal, com valores entre 1 e 10 e média de 5,86 dm.
-
-```{r, echo = FALSE, fig.asp = 1, fig.cap=" Histograma de frequências da profundidade do solum"}
-ex <- hist(pontos$PFd, breaks = 10, xlab = "", col = "grey90", cex.axis = 1, xlim = c(1, 10), ylim = c(0, 37), ylab = "", main = "")
-xfit <- seq(min(pontos$PFd), max(pontos$PFd), length = 50)
-yfit <- dnorm(xfit, mean = mean(pontos$PFd), sd = sd(pontos$PFd))
-yfit <- yfit * diff(ex$mids[1:2]) * length(pontos$PFd)
-lines(xfit, yfit, col = "red", lwd = 2)
-mtext("Frequência", line = 2.6, side = 2, cex = 1) # experimente usar o argumento ylab da função hist
-mtext("PF (dm)", line = 2.6, side = 1, cex = 1) # experimente usar o argumento xlab da função hist
-rug(pontos$PFd, col = "red")
-box()
-```
+Como uma análise preliminar avaliei a distribuição de frequências dos dados de profundidade do solum (Figura 2). Os dados apresentam uma distribuição bimodal, com valores concentrados nas profundidades 1 e 10 dm. Essa concentração é um provável efeito da censura de dados na marca inferior, devido a precisão da medida no campo e nos superiores principalmente limitados pela altura total do instrumento utilizado (10 dm).
 
 ```{r}
 summary(pontos$PFd)
 ```
 
-## Modelo linear misto de variação espacial
+```{r fig.asp=1}
+histogram(pontos$PFd) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$PFd))
+```
 
+
+## Modelo linear misto de variação espacial
 
 <!-- ASR: O objetivo do relatório é conter, além dos resultados das análises, um relato de sua experiência, sua forma de ver e entender o conteúdo e o que foi feito. Os parágrafos abaixo são, fundamentalmente, uma cópia modificada do texto do material de apoio. Não há muito sentido em incluir isso no seu relatório. Ademais, essa prática pode ser interpretada como plágio. Tome muito cuidado com isso no futuro. -->
 
@@ -120,16 +118,13 @@ $\varepsilon(\boldsymbol{s}_i)$ é o erro (ou ruído), descrito por uma distribu
 
 ### Efeito fixo
 
-<!-- ASR: Profundidade? Ademais, a verificação da relação linear não está clara. -->
-Para selecionar os efeitos fixos do modelo, verifiquei a relação linear entre as variáveis topográficas e de produtividade e a profundidade do solum.
-
 #### Covariáveis topográficas
 
-<!-- ASR: Parece-me importante relatar a razão da agregação. -->
 As covariáveis topográfricas foram derivadas do modelo digital de elevação disponibilizado pelo Governo do Estado de SC - Secretaria de Estado do Desenvolvimento Econômico Sustentável, proveniente do Levantamento Aerofotogramétrico em 2010. Os dados, disponibilizados com resolução de 1 metro, foram reamostrados para resolução espacial de 10 metros utilizando a ferramenta *reamostragem* no software SAGA GIS.
 
-<!-- ASR: TIF é um formato de arquivo de armazenamento de dados no computador. Ele não é usado no R. -->
-Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados em `.tif` nos objetos `RasterLayer` (Figura 3).
+A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agregação de informação foi realizada para assegurar a estimativa média do valor de pixel em cada área de coleta de dados.
+
+Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
 DECLI <- raster::raster("../data/Covars/DECLI.tif")
@@ -143,7 +138,7 @@ par(mfrow=c(2,2))
 plot(ELEV, main='Elevação') 
 plot(DECLI,main='Declividade')
 plot(VD, main='Profundidade do vale')
-plot(TWI, main='Índice de umidade topográfica') # ASR: Não seria mais eficiente usar log(TWI)?
+plot(TWI, main='Índice de umidade topográfica')
 ```
 
 A partir da função `raster::extract` extraí os valores de cada objeto na localização de cada observação contida no objeto espacial `pontos`.
@@ -157,15 +152,23 @@ pontos$TWI <- raster::extract(TWI, pontos)
 
 #### Covariável de produção
 
-Além dos atributos de terreno, foi utilizado um índice de produtividade disponibilizado pela empresa.
+Durante o manejo de florestas comerciais, a maioria das decisões envolve avaliação da capacidade produtiva das áreas florestais em estado de ordenação, utilizando estas áreas homogêneas. A determinação da capacidade produtiva das áreas é fator básico na condução de povoamentos e no planejamento da produção madeireira, pois esses índices são utilizados na previsão de tratos e métodos de manejo da floresta conforme o desempenho projetado para a espécie em cada sítio.
 
-<!-- ASR: Seria interessante explicar como são definidos os talhões, sobretudo porque eles são explorados como covariável. -->
-Esses índices são utilizados para ordenamento da produção e provém da amostragem de parcelas fixas. A área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local. Cada PIC é classificada em função da média de altura das 100 árvores de maior perímetro basal da parcela, expressa como altura dominante (Hdom). Em função da Hdom e seus incrementos anuais é estabelecido o índices de sítio (Sitio). Esse índice então é então atribuido à todo o talhão.
+A classificação da floresta em sítio é uma forma de estratificação do povoamento em áreas mais homogêneas com base nas características da vegetação ou em fatores do meio ou numa combinação destes.
 
-As parcelas da área são classificadas em 4 níveis, em que 1 corresponde a melhor e 4 a pior produtividade (Figura 4).
+O método de classificação mais utilizado na silvicultura é o dendrométrico. Este método realiza a classificação dos sítios a partir da capacidade produtiva de cada unidade, expressa por uma variável mensurável: altura dominante (Hdom, em m), área basal (G, em m^2^ha^-1^) e volume de madeira (V, em m^3^ ha^-1^). Essas informações dendrométricas são retiradas de parcelas amostrais fixas de inventário florestal contínuo (IFC), onde Hdom é média de altura das 100 árvores de maior perímetro basal da parcela.
 
-<!-- ASR: Na verdade usou a função raster::raster() e o nome do objeto é 'Sitio'. -->
-Utilizei a função `raster::shapefile` para carregar o polígono com informações das sítio - armazenado no objeto `ProdutividadePistola`. A função `sp::spTransform` foi usada para projetar as coordenadas original no plano cartesiano (UTM) e a função `raster::extract` para extraír os valores de cada objeto raster nas localizações de cada observação contidas no objeto espacial `pontos`.
+Uma vez estabelecido o plantio florestal, é possível determinar a potencialidade do sítio onde este se encontra mediante avaliação da capacidade produtiva do local em função das variáveis dendrométricas, mensuradas anualmente para acompanhamento dos incrimentos, pelo inventário florestal contínuo. A partir dai são estabelecidos índices de produtividade para cada sítio ou índices de sítio (IS).
+
+A classificação por índices de local considera que todos os fatores ambientais são refletidos de modo interativo no crescimento em altura, a qual também está relacionada ao volume de madeira.
+
+Considerando o índice de sítio como um bom indicar dos da qualidade ambiental para o desenvolvimento da espécie e, ainda, que a profundidade do solum é o principal limitante do desenvolvimento em altura da espécie, considerei os índices de sítio como uma covariável da profundidade do solum.
+
+Assim, além dos atributos de terreno, foi utilizado um índice de produtividade disponibilizado pela empresa. A área possui 12 parcelas fixas de inventário contínuo (PIC) de 500 metros quadrados cada que são utilizados na estimativa da produtividade local com valores atribuidos à cada talhão. As parcelas da área são classificadas em 4 níveis, em que 1 corresponde a melhor e 4 a pior produtividade (Figura 4).
+
+Apesar das parcelas de inventário serem alocadas de maneira sistemática, a dimensão do talhão e seus limites são definidos, na maoria da vezes, considerando a declividade e a adequação às vias de acesso, por razões estritamente operacionais. Por esta razão os talhões nem sempre apresetam condições homogêneas para o desenvolvimento da floresta.
+
+Utilizei a função `raster::raster` para carregar o polígono com informações das sítio - armazenado no objeto `Sitio`. A função `sp::spTransform` foi usada para projetar as coordenadas original no plano cartesiano (UTM) e a função `raster::extract` para extraír os valores de cada objeto raster nas localizações de cada observação contidas no objeto espacial `pontos`.
 
 ```{r}
 Sitio <- raster::raster("../data/Covars/Sitio.tif")
@@ -176,24 +179,8 @@ pontos <- na.omit(pontos)
 ```
 
 ```{r}
-# ASR: Figura com pontos. Veja que os mesmos 102 pontos continuam no objeto. Isso significa que os
-#     pontos com NAs não foram removidos. Veja abaixo.
 plot(Sitio, main = paste("n = ", length(pontos)))
 points(pontos@coords)
-```
-
-```{r}
-is.na(pontos$Sitio) %>% any
-```
-
-```{r}
-# ASR: Remoção dos pontos com NAs
-pontos <- pontos[!is.na(pontos$Sitio), ]
-```
-
-<!-- ASR: Importante gerar o histograma e estatísticas descritivas dos dados após remoção dos NAs. -->
-```{r, fig.asp=1}
-histogram(pontos$PFd) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$PFd))
 ```
 
 <!-- ASR: Vejo que a mesma informação espacial está sendo usada em dois formatos, raster e shape. Isso pode facilmente resultar em erros. Use apenas um tipo de dado. -->
@@ -211,14 +198,8 @@ sp::spplot(
 latticeExtra::as.layer()
 ```
 
-#### Avaliação da relação linear entre as variáveis
-
-<!-- ASR: A significância de um teste t para dados espaciais não deve ser considerada como critério para seleção/eliminação de covariáveis. Primeiro, devemos levar em conta o conhecimento pedológico. Por exemplo, essas covariáveis foram usadas para definir os locais de amostragem. Assim sendo devem ser usadas no modelo pois, de antemão, já fazem parte do modelo. Segundo, testes estatísticos devem levar em conta a autocorrelação espacial. -->
-Considerando que apenas a covariável `DECLI` apresenta uma correlação significativa com a profundidade do solum, considerei somente a declividade como variável de efeito fixo, não-constantes, na área.
-
 ```{r}
-# ASR: Usando TWI
-form <- PFd ~ DECLI + ELEV + VD + TWI + Sitio
+form <- PFd ~ DECLI + ELEV + VD + TWI
 lm(form, data = pontos@data) %>% summary()
 ```
 
@@ -228,6 +209,15 @@ O variograma amostral (Figura 7) foi computado através da função `georob::sam
 Para a obtenção dos parâmetros utilizei um corte de 66% da distância máxima entre os pontos, armazenada no objeto `distmax`, excluindo os pares de longa distãncia.
 
 <!-- ASR: Antes de computar o variograma omnidirecional, é importante verificar se há efeitos direcionais. -->
+
+```{r}
+distmax <-dist(pontos@coords) %>% max() / 3
+limites <- seq(0, distmax, length.out = 20)
+vario <- georob::sample.variogram(form,
+    data= pontos, locations = ~ X + Y, lag.dist.def = limites, xy.angle.def = c(0, 22.5, 67.5, 112.5, 157.5, 180), estimator = "matheron") %>%
+plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE, main = "Semivariograma")
+```
+
 ```{r fig.asp=1, fig.width=7, fig.height=7, fig.cap=" Variograma amostral"}
 distmax <-dist(pontos@coords) %>% max() / 3
 limites <- seq(0, distmax, length.out = 20)
@@ -245,7 +235,7 @@ A função resultante desse processo foi armazenada no objeto `vario_fit`.
 ```{r}
 vario_fit <- 
   georob::fit.variogram.model(
-  vario, variogram.model = 'RMexp', param = c(variance = 10, nugget = 5, scale = 70), weighting.method = "cressie", method = "BFGS")
+  vario, variogram.model = 'RMexp', param = c(variance = 10, nugget = 0.5, scale = 70), weighting.method = "cressie", method = "BFGS")
 summary(vario_fit)
 ```
 
@@ -263,7 +253,6 @@ Considerando que durante a obteção dos dados de campo as informações de prof
 Assim, foi possível discretizar a variância não explicada em erro de medida corresponde 0,25 do parâmetro `nugget`. A variância restante foi atribuída a variação espacial não auto-correlacionada espacialmente - não capturada pelo plano amostral `snugget`.
 A função resultante desse processo foi armazenado no objeto `vario_fit_error`.
 
-<!-- ASR: Compare o teste t abaixo com o teste t acima. Apesar do resultado, a eliminação de covariáveis é discutível pois elas fazem parte do modelo desde a definição dos locais de amostragem. -->
 ```{r, warning=FALSE}
 nugget <- 0.25
 vario_fit_error <- georob::georob(
@@ -290,20 +279,8 @@ A função `vario_fit_error` foi utilizada para a predição espacial.
   Para isso foi criado um grid de predição abrangendo a área de estudo. A partir da função `raster::extract` foram extraídos os valores do objeto `DECLI` e armazenados no novo conjunto de dados `grid`.
 
 ```{r}
-# grid <- sp::spsample(ProdutividadePistola, 10000, type = 'regular')
-# grid$DECLI <- raster::extract(DECLI, grid)
-
-# grid<- 
-  # sp::SpatialPointsDataFrame(
-    # coords = grid@coords, 
-    # data = data.frame(grid),
-    # proj4string = grid@proj4string)
-# colnames(grid@coords) <- colnames(pontos@coords)
-
-# ASR: Versão mais simples.
-grid <- stack(DECLI, ELEV, TWI, VD, Sitio)
+grid <- stack(DECLI, ELEV, TWI, VD)
 grid <- as(grid, 'SpatialPointsDataFrame')
-grid$Sitio <- as.factor(grid$Sitio)
 colnames(grid@coords) <- colnames(pontos@coords)
 ```
 
@@ -340,7 +317,6 @@ spplot(pred_ponto, zcol="upper", at=at, main="Limite superior")
 Para a validação dos resultados utilizei o método de validação cruzada. Este método é realizado em etapas de validação com a partição do conjunto de dados aleatóriamente em subconjuntos ($k$). Em cada etapa de validação um dos conjuntos é utilizado para validar o modelo calibrado com $k-1$ subconjuntos.
 Esse procedimento é repetido até que todos subconjuntos $k$ tenham sido utilizados como conjunto de validação do modelo. A partir das predições realizadas com cada subconjunto $k$ são calculados os erros para avaliar a qualidade das predições.
 
-<!-- ASR: Acho que não é nset = 101 amostras pois existem pontos com NA que foram removidos. Por isso sempre é bom definir essas variáveis programaticamente. Veja abaixo. -->
 Para isso utilizei a função `cv::georob`. Defini o número o número $k$ de subconjuntos em que o conjunto de dados `pontos` foi particionado definindo o parâmetro `nset = 101`. Assim, em cada etapa da validação 101 pontos foram utilizados para a validação e 1 para a calibração do modelo linear misto. As medidas de qualidade dependentes do modelo obtidas foram:
 
 ```{r}
@@ -348,7 +324,6 @@ nset <- length(pontos) - 1
 validacao <- georob::cv(vario_fit_error, nset = nset)
 summary(validacao)
 ```
-A medida de Erro médio ($ME$) aponta uma tendência do modelo em sobreestimar os valores de profundidade do solum, dados os valores negativos.
 
 ```{r}
 1 - sum((validacao$pred$data - validacao$pred$pred)^2) / sum((validacao$pred$data - mean(validacao$pred$data))^2)
@@ -358,6 +333,5 @@ A medida de Erro médio ($ME$) aponta uma tendência do modelo em sobreestimar o
 plot(validacao)
 ```
 
-<!-- ASR: Não sei se esse é o caso nesse estudo, haja vista que os resultados da validação cruzada são bastante ruins. Parece-me importante discutir os resultados sobre esse ponto de vista, ou seja, a razão das predições tão ruins para uma variável relativamente estável. -->
 Como os dados utilizados para a validação são os mesmo utilizados para validar o modelo, e, que as amostras foram obtidas intencionalmente, é provavel que esta avaliação seja otimista.
 
