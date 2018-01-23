@@ -144,10 +144,28 @@ plot(TWI, main='Índice de umidade topográfica')
 A partir da função `raster::extract` extraí os valores de cada objeto na localização de cada observação contida no objeto espacial `pontos`.
 
 ```{r}
-pontos$DECLI <- raster::extract(DECLI, pontos)
-pontos$ELEV <- raster::extract(ELEV, pontos)
-pontos$VD <- raster::extract(VD, pontos)
-pontos$TWI <- raster::extract(TWI, pontos)
+# Identificar o tamanho ótimo da vizinhança para amostragem das covariáveis
+# Avaliação de raio de 5 até 50 m. Raio maior não é considerado devido ao efeito de borda (ausência de
+# dados para além dos limites da área de estudo).
+tmp <- vector(length = 10)
+for (i in seq(tmp)) {
+  pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 5 * i, fun = mean)
+  pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5 * i, fun = mean)
+  pontos$VD <- raster::extract(VD, pontos, buffer = 5 * i, fun = mean)
+  pontos$TWI <- raster::extract(TWI, pontos, buffer = 5 * i, fun = mean)
+  tmp[i] <- summary(lm(PFd ~ DECLI + ELEV + VD + TWI, pontos))$adj.r.squared
+}
+pander::pandoc.table(
+  data.frame(5 * seq(tmp), tmp), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
+  col.names = c("Buffer (m)", "Adj R^2^"))
+```
+
+```{r}
+# Tamanho ótimo da vizinhança para amostragem das covariáveis: raio de 50 m
+pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 50, fun = mean)
+pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 50, fun = mean)
+pontos$VD <- raster::extract(VD, pontos, buffer = 50, fun = mean)
+pontos$TWI <- raster::extract(TWI, pontos, buffer = 50, fun = mean)
 ```
 
 #### Covariável de produção
