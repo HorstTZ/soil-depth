@@ -56,7 +56,7 @@ Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsData
 
 ```{r}
 rm(list = ls())
-pontos <- read.csv('../data/Gateados-campo.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
+pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
 # ASR: Suponho que o correto seja arredondar os valores de profundidade. Do contrário é o mesmo que usar em 
 #     centímetros. Também suponho que seria importante explicar a razão desse procedimento.
 
@@ -127,11 +127,11 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
-DECLI <- raster::raster("../data/Covars/DECLI1.tif")
-ELEV <- raster::raster("../data/Covars/ELEV1.tif")
-VD <- raster::raster("../data/Covars/VD1.tif")
-TWI <- raster::raster("../data/Covars/TWI1.tif")
-CNBL <- raster::raster("../data/Covars/CNBL1.tif")
+DECLI <- raster::raster("../data/Covars/1m/DECLI.tif")
+ELEV <- raster::raster("../data/Covars/1m/ELEV.tif")
+VD <- raster::raster("../data/Covars/1m/VD.tif")
+TWI <- raster::raster("../data/Covars/1m/TWI.tif")
+CNBL <- raster::raster("../data/Covars/1m/CNBL.tif")
 ```
 
 ```{r, fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
@@ -165,11 +165,11 @@ pander::pandoc.table(
 
 ```{r}
 # Tamanho ótimo da vizinhança para amostragem das covariáveis: raio de 50 m
-pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 10, fun = mean)
-pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 10, fun = mean)
-pontos$VD <- raster::extract(VD, pontos, buffer = 10, fun = mean)
-pontos$TWI <- raster::extract(TWI, pontos, buffer = 10, fun = mean)
-pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 10, fun = mean)
+pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 5, fun = mean)
+pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5, fun = mean)
+pontos$VD <- raster::extract(VD, pontos, buffer = 5, fun = mean)
+pontos$TWI <- raster::extract(TWI, pontos, buffer = 5, fun = mean)
+pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 5, fun = mean)
 ```
 
 #### Covariável de produção
@@ -221,7 +221,7 @@ latticeExtra::as.layer()
 ```
 
 ```{r}
-form <- PFd ~ DECLI + ELEV + VD + TWI
+form <- PFd ~ DECLI + ELEV + VD + TWI + CNBL
 lm(form, data = pontos@data) %>% summary()
 ```
 
@@ -301,9 +301,10 @@ A função `vario_fit_error` foi utilizada para a predição espacial.
   Para isso foi criado um grid de predição abrangendo a área de estudo. A partir da função `raster::extract` foram extraídos os valores do objeto `DECLI` e armazenados no novo conjunto de dados `grid`.
 
 ```{r}
-grid <- stack(DECLI, ELEV, TWI, VD)
+grid <- stack(DECLI, ELEV, TWI, VD, CNBL)
 grid <- as(grid, 'SpatialPointsDataFrame')
 colnames(grid@coords) <- colnames(pontos@coords)
+grid@data
 ```
 
 ## Predição espacial da resposta do modelo linear misto
@@ -313,7 +314,7 @@ Utilizei a saída extendida do `georob::control.predict.georob(extended.output =
 
 ```{r, fig.width=10, warning=FALSE,  fig.cap= "Mapas de predição - saída extendida do georob"}
 pred_ponto <- predict(
-  vario_fit_error, newdata = grid, type = "response", signif = 0.95,
+  vario_fit_error, newdata = grid, type = "response", signif = 0.95, na.rm = TRUE,
   control = georob::control.predict.georob(extended.output = TRUE))
 sp::gridded(pred_ponto) <- TRUE
 spplot(pred_ponto)
@@ -343,7 +344,7 @@ Para isso utilizei a função `cv::georob`. Defini o número o número $k$ de su
 
 ```{r}
 nset <- length(pontos) - 1
-validacao <- georob::cv(vario_fit_error, nset = nset)
+validacao <- georob::cv(vario_fit_error, nset = nset, replace = TRUE)
 summary(validacao)
 ```
 
