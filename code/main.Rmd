@@ -56,7 +56,7 @@ Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsData
 
 ```{r}
 rm(list = ls())
-pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
+pontos <- read.csv('../data/Gateados-campo.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
 # ASR: Suponho que o correto seja arredondar os valores de profundidade. Do contrário é o mesmo que usar em 
 #     centímetros. Também suponho que seria importante explicar a razão desse procedimento.
 
@@ -127,10 +127,11 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
-DECLI <- raster::raster("../data/Covars/DECLI.tif")
-ELEV <- raster::raster("../data/Covars/ELEV.tif")
-VD <- raster::raster("../data/Covars/VD.tif")
-TWI <- raster::raster("../data/Covars/TWI.tif")
+DECLI <- raster::raster("../data/Covars/DECLI1.tif")
+ELEV <- raster::raster("../data/Covars/ELEV1.tif")
+VD <- raster::raster("../data/Covars/VD1.tif")
+TWI <- raster::raster("../data/Covars/TWI1.tif")
+CNBL <- raster::raster("../data/Covars/CNBL1.tif")
 ```
 
 ```{r, fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
@@ -139,6 +140,7 @@ plot(ELEV, main='Elevação')
 plot(DECLI,main='Declividade')
 plot(VD, main='Profundidade do vale')
 plot(TWI, main='Índice de umidade topográfica')
+plot(CNBL)
 ```
 
 A partir da função `raster::extract` extraí os valores de cada objeto na localização de cada observação contida no objeto espacial `pontos`.
@@ -155,6 +157,7 @@ for (i in seq(tmp)) {
   pontos$TWI <- raster::extract(TWI, pontos, buffer = 5 * i, fun = mean)
   tmp[i] <- summary(lm(PFd ~ DECLI + ELEV + VD + TWI, pontos))$adj.r.squared
 }
+
 pander::pandoc.table(
   data.frame(5 * seq(tmp), tmp), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
   col.names = c("Buffer (m)", "Adj R^2^"))
@@ -162,10 +165,11 @@ pander::pandoc.table(
 
 ```{r}
 # Tamanho ótimo da vizinhança para amostragem das covariáveis: raio de 50 m
-pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 50, fun = mean)
-pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 50, fun = mean)
-pontos$VD <- raster::extract(VD, pontos, buffer = 50, fun = mean)
-pontos$TWI <- raster::extract(TWI, pontos, buffer = 50, fun = mean)
+pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 10, fun = mean)
+pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 10, fun = mean)
+pontos$VD <- raster::extract(VD, pontos, buffer = 10, fun = mean)
+pontos$TWI <- raster::extract(TWI, pontos, buffer = 10, fun = mean)
+pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 10, fun = mean)
 ```
 
 #### Covariável de produção
