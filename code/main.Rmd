@@ -127,11 +127,11 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
-DECLI <- raster::raster("../data/Covars/1m/DECLI.tif")
-ELEV <- raster::raster("../data/Covars/1m/ELEV.tif")
-VD <- raster::raster("../data/Covars/1m/VD.tif")
-TWI <- raster::raster("../data/Covars/1m/TWI.tif")
-CNBL <- raster::raster("../data/Covars/1m/CNBL.tif")
+DECLI <- raster::raster("../data/Covars/DECLI.tif")
+ELEV <- raster::raster("../data/Covars/ELEV.tif")
+VD <- raster::raster("../data/Covars/VD.tif")
+TWI <- raster::raster("../data/Covars/TWI.tif")
+CNBL <- raster::raster("../data/Covars/CNBL.tif")
 ```
 
 ```{r, fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
@@ -165,11 +165,11 @@ pander::pandoc.table(
 
 ```{r}
 # Tamanho ótimo da vizinhança para amostragem das covariáveis: raio de 50 m
-pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 5, fun = mean)
-pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5, fun = mean)
-pontos$VD <- raster::extract(VD, pontos, buffer = 5, fun = mean)
-pontos$TWI <- raster::extract(TWI, pontos, buffer = 5, fun = mean)
-pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 5, fun = mean)
+pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 50, fun = mean)
+pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 50, fun = mean)
+pontos$VD <- raster::extract(VD, pontos, buffer = 50, fun = mean)
+pontos$TWI <- raster::extract(TWI, pontos, buffer = 50, fun = mean)
+pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 50, fun = mean)
 ```
 
 #### Covariável de produção
@@ -224,6 +224,16 @@ latticeExtra::as.layer()
 form <- PFd ~ DECLI + ELEV + VD + TWI + CNBL
 lm(form, data = pontos@data) %>% summary()
 ```
+```{r}
+lm(PFd ~ CNBL, data = pontos@data) %>% summary()
+```
+
+```{r}
+nndist(pontos@coords) %>% mean()
+
+nni(pontos)
+```
+
 
 ## Variograma amostral
 
