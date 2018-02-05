@@ -57,11 +57,6 @@ Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsData
 ```{r}
 rm(list = ls())
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
-# ASR: Suponho que o correto seja arredondar os valores de profundidade. Do contrário é o mesmo que usar em 
-#     centímetros. Também suponho que seria importante explicar a razão desse procedimento.
-
-# TZH: Entendo que os valores foram arredondados do campo. Todos os valores de profundidade foram tomados como sendo múltiplos de 0,5 dm. Na planilha original eles foram anotados como sendo em centímetros. Entendo que não é certo usar a medida de centímetro pela questão da precisão com que os números foram obtidos. O arredondamento que tu se refere é dos valores 1,5 e 5,5 para inteiros? Pq da forma que esta no script os valores não mudaram (nem usando o parâmetro digits = 0 da função round) por causa da precisão. Pode me explicar melhor?
-
 pontos$PFd <- pontos$PF / 10 %>% round()
 sp::coordinates(pontos) <- c('X' , 'Y')
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
@@ -95,7 +90,27 @@ summary(pontos$PFd)
 ```
 
 ```{r fig.asp=1}
-histogram(pontos$PFd) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$PFd))
+
+library(lattice)
+H1 <- histogram(pontos$PFd) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$PFd))
+
+H2 <- histogram(pontos$DECLI) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$DECLI))
+
+H3 <- histogram(pontos$ELEV) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$ELEV))
+
+H4 <- histogram(pontos$TWI) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$TWI))
+
+H5 <- histogram(pontos$CNBL) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$CNBL))
+
+H6 <- histogram(pontos$VD) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$VD))
+
+plot(H1, split = c(1, 1, 2, 3))
+plot(H2, split = c(2, 2, 2, 3), newpage = FALSE)
+plot(H3, split = c(1, 2, 2, 3), newpage = FALSE) 
+plot(H4, split = c(2, 1, 2, 3), newpage = FALSE) 
+plot(H5, split = c(1, 3, 2, 3), newpage = FALSE) 
+plot(H6, split = c(2, 3, 2, 3), newpage = FALSE) 
+
 ```
 
 
@@ -127,7 +142,7 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
-DECLI <- raster::raster("../data/Covars/DECLI.tif")
+DECLI <- raster::raster("../data/Covars/SLOP.tif")
 ELEV <- raster::raster("../data/Covars/ELEV.tif")
 VD <- raster::raster("../data/Covars/VD.tif")
 TWI <- raster::raster("../data/Covars/TWI.tif")
@@ -155,13 +170,15 @@ for (i in seq(tmp)) {
   pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5 * i, fun = mean)
   pontos$VD <- raster::extract(VD, pontos, buffer = 5 * i, fun = mean)
   pontos$TWI <- raster::extract(TWI, pontos, buffer = 5 * i, fun = mean)
-  tmp[i] <- summary(lm(PFd ~ DECLI + ELEV + VD + TWI, pontos))$adj.r.squared
+  pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 5 * i, fun = mean)
+  tmp[i] <- summary(lm(PFd ~ DECLI + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
 }
 
 pander::pandoc.table(
   data.frame(5 * seq(tmp), tmp), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
   col.names = c("Buffer (m)", "Adj R^2^"))
 ```
+
 
 ```{r}
 # Tamanho ótimo da vizinhança para amostragem das covariáveis: raio de 50 m
@@ -223,7 +240,32 @@ latticeExtra::as.layer()
 ```{r}
 form <- PFd ~ DECLI + ELEV + VD + TWI + CNBL
 lm(form, data = pontos@data) %>% summary()
+
+matriz <-pontos@data[,6:11]
+matriz.cor=cor(matriz)
+matriz.cor
+
+lm(PFd ~ DECLI, data = pontos@data) %>% summary()
+
+
+
+## required to loading the camg data set from geoR package
+install.packages('SpatialPack')
+library(SpatialPack)
+
+## defining the variables elevation and ca020 from the camg data set
+x <- pontos$PFd
+y <- pontos$DECLI
+
+## extracting the coordinates from the camg data set
+coords <- pontos@coords[,1:2]
+
+## computing Tjostheim's coefficient
+cor.spatial(x, y, coords)
+
+
 ```
+
 ```{r}
 lm(PFd ~ CNBL, data = pontos@data) %>% summary()
 ```
@@ -314,7 +356,6 @@ A função `vario_fit_error` foi utilizada para a predição espacial.
 grid <- stack(DECLI, ELEV, TWI, VD, CNBL)
 grid <- as(grid, 'SpatialPointsDataFrame')
 colnames(grid@coords) <- colnames(pontos@coords)
-grid@data
 ```
 
 ## Predição espacial da resposta do modelo linear misto
@@ -335,6 +376,9 @@ O mapa `trend` definido como a média espacial dos efeitos deterministicos, é s
 ```{r, fig.width=10}
 at <- pred_ponto@data[, c("pred", "lower", "upper")] %>% range(na.rm = TRUE)
 at <- seq(at[1], at[2], length.out = 20)
+
+
+#pred_ponto@data[, c("pred")] %>% range(na.rm = TRUE)
 ```
 
 A krigagem tenta minimizar o valor esperado do erro entre o valor predito e o medido. Mesmo assim o intervalo de predição observado é grande. A medida de variância demonstrada a medida de incerteza do modelo para cada ponto e esse intervalo amplo entre os valores mínimo e máximo de predição demonstra o quão incerto é o modelo.
