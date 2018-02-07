@@ -89,34 +89,24 @@ Como uma análise preliminar avaliei a distribuição de frequências dos dados 
 summary(pontos$PFd)
 ```
 
-```{r fig.asp=1}
-
+```{r}
 library(lattice)
-H1 <- histogram(pontos$PFd) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$PFd))
 
-H2 <- histogram(pontos$DECLI) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$DECLI))
-
-H3 <- histogram(pontos$ELEV) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$ELEV))
-
-H4 <- histogram(pontos$TWI) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$TWI))
-
-H5 <- histogram(pontos$CNBL) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$CNBL))
-
-H6 <- histogram(pontos$VD) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$VD))
-
-plot(H1, split = c(1, 1, 2, 3))
-plot(H2, split = c(2, 2, 2, 3), newpage = FALSE)
-plot(H3, split = c(1, 2, 2, 3), newpage = FALSE) 
-plot(H4, split = c(2, 1, 2, 3), newpage = FALSE) 
-plot(H5, split = c(1, 3, 2, 3), newpage = FALSE) 
-plot(H6, split = c(2, 3, 2, 3), newpage = FALSE) 
+histogram(
+  pontos$PFd,
+  ylab = list(label="Densidade", cex=1.7, family="A"),
+  xlab = list(label="PS (dm)", cex=1.7, family="A"),
+  col = "gray",
+  scales=list(cex=1.7)) +
+  
+  latticeExtra::layer(panel.grid(v = 0)) +
+  latticeExtra::layer(panel.rug(pontos$PFd))
 
 ```
 
 
 ## Modelo linear misto de variação espacial
 
-<!-- ASR: O objetivo do relatório é conter, além dos resultados das análises, um relato de sua experiência, sua forma de ver e entender o conteúdo e o que foi feito. Os parágrafos abaixo são, fundamentalmente, uma cópia modificada do texto do material de apoio. Não há muito sentido em incluir isso no seu relatório. Ademais, essa prática pode ser interpretada como plágio. Tome muito cuidado com isso no futuro. -->
 
 Para modelagem geoestatística dos dados foi utilizado o modelo linear misto de variação espacial denotado por
 
@@ -142,7 +132,7 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
-DECLI <- raster::raster("../data/Covars/SLOP.tif")
+DECLI <- raster::raster("../data/Covars/SLOPE.tif")
 ELEV <- raster::raster("../data/Covars/ELEV.tif")
 VD <- raster::raster("../data/Covars/VD.tif")
 TWI <- raster::raster("../data/Covars/TWI.tif")
@@ -248,7 +238,6 @@ matriz.cor
 lm(PFd ~ DECLI, data = pontos@data) %>% summary()
 
 
-
 ## required to loading the camg data set from geoR package
 install.packages('SpatialPack')
 library(SpatialPack)
@@ -262,7 +251,6 @@ coords <- pontos@coords[,1:2]
 
 ## computing Tjostheim's coefficient
 cor.spatial(x, y, coords)
-
 
 ```
 
@@ -295,7 +283,7 @@ plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.
 ```{r fig.asp=1, fig.width=7, fig.height=7, fig.cap=" Variograma amostral"}
 distmax <-dist(pontos@coords) %>% max() / 3
 limites <- seq(0, distmax, length.out = 20)
-vario <- georob::sample.variogram(form,
+vario <- georob::sample.variogram(PFd ~ DECLI + ELEV + VD + TWI + CNBL,
     data= pontos, locations = ~ X + Y, lag.dist.def = limites, estimator = "matheron") %>%
 plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE, main = "Semivariograma")
 ```
@@ -330,7 +318,7 @@ A função resultante desse processo foi armazenado no objeto `vario_fit_error`.
 ```{r, warning=FALSE}
 nugget <- 0.25
 vario_fit_error <- georob::georob(
-   form, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
+   PFd ~ DECLI + ELEV + VD + TWI + CNBL, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
  param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
            nugget = nugget,
            snugget = vario_fit$variogram.object[[1]]$param[['nugget']] - nugget,
@@ -348,6 +336,18 @@ plot(vario)
 lines(vario_fit, col = "blue")
 lines(vario_fit_error, col = "red")
 ```
+
+Perfil da função logarítmica da verossimilhança restrita para o parâmetro alcance (scale). A linhas verticais representam a estimativa e intervalo de confiança do parâmetro alcance. A interseção entre a linha horizontal e o perfil indica a região de 95% de confiança para o parâmetro alcance segundo o teste da razão de verossimilhança.
+
+```{r}
+prof_reml_fit_scale <- 
+  georob::profilelogLik(object = vario_fit_error, values = data.frame(scale = seq(10, 250, by = 10)))
+
+plot(loglik ~ scale, prof_reml_fit_scale, type = "l", xlab = 'Alcance', cex.lab=1.5, cex.axis=1.5)
+abline(v = summary(vario_fit_error)$param.aniso[[1]]['scale', ], lty = c("dashed", rep('dotted', 2)), col = 'red')
+abline(h = vario_fit_error$loglik - 0.5 * qchisq(0.95, 1), lty = "dotted")
+```
+
 
 A função `vario_fit_error` foi utilizada para a predição espacial.
   Para isso foi criado um grid de predição abrangendo a área de estudo. A partir da função `raster::extract` foram extraídos os valores do objeto `DECLI` e armazenados no novo conjunto de dados `grid`.
