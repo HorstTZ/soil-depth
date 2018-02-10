@@ -149,7 +149,7 @@ for (i in seq(tmp)) {
   pontos$VD <- raster::extract(VD1, pontos, buffer = 5 * i, fun = mean)
   pontos$TWI <- raster::extract(TWI1, pontos, buffer = 5 * i, fun = mean)
   pontos$CNBL <- raster::extract(CNBL1, pontos, buffer = 5 * i, fun = mean)
-  tmp[i] <- summary(lm(PFd ~ DECLI + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
+  tmp[i] <- summary(lm(PFd ~ DECLI1 + ELEV1 + VD1 + TWI1 + CNBL1, pontos))$adj.r.squared
 }
 
 pander::pandoc.table(
@@ -165,13 +165,6 @@ pontos$VD <- raster::extract(VD1, pontos, buffer = 50, fun = mean)
 pontos$TWI <- raster::extract(TWI1, pontos, buffer = 50, fun = mean)
 pontos$CNBL <- raster::extract(CNBL1, pontos, buffer = 50, fun = mean)
 ```
-
-```{r fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
-par(mfrow=c(2,1))
-plot(DECLI1,main='Declividade')
-plot(DECLI, main='Declividade reamostrad')
-```
-
 
 ```{r}
 grid <- stack(DECLI, ELEV, TWI, VD, CNBL)
@@ -189,10 +182,11 @@ grid$TWI <- raster::extract(TWI, grid, buffer = 50, fun = mean)
 grid$CNBL <- raster::extract(CNBL, grid, buffer = 50, fun = mean)
 ```
 
-```{r}
-
+```{r fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
+par(mfrow=c(2,1))
+plot(DECLI1,main='Declividade')
+plot(DECLI, main='Declividade reamostrado 100 m')
 ```
-
 
 
 #### Covariável de produção
