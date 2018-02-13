@@ -91,8 +91,8 @@ summary(pontos$PFd)
 
 ```{r}
 histogram(
-  pontos$PFd,
-  ylab = list(label="Densidade", cex=1.7),
+  pontos$PFd, type = "count",
+  ylab = list(label="Frequência (n)", cex=1.7),
   xlab = list(label="PS (dm)", cex=1.7),
   col = "gray",
   scales=list(cex=1.7)) +
@@ -159,12 +159,19 @@ pander::pandoc.table(
 
 ```{r}
 # Tamanho ótimo da vizinhança para amostragem das covariáveis: raio de 50 m
-pontos$DECLI <- raster::extract(DECLI1, pontos, buffer = 50, fun = mean)
-pontos$ELEV <- raster::extract(ELEV1, pontos, buffer = 50, fun = mean)
-pontos$VD <- raster::extract(VD1, pontos, buffer = 50, fun = mean)
-pontos$TWI <- raster::extract(TWI1, pontos, buffer = 50, fun = mean)
-pontos$CNBL <- raster::extract(CNBL1, pontos, buffer = 50, fun = mean)
+pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 50, fun = mean)
+pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 50, fun = mean)
+pontos$VD <- raster::extract(VD, pontos, buffer = 50, fun = mean)
+pontos$TWI <- raster::extract(TWI, pontos, buffer = 50, fun = mean)
+pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 50, fun = mean)
 ```
+
+```{r}
+f1 <- focal(DECLI, w = matrix(1,nrow=9,ncol=9), fun=mean, pad=TRUE,  na.rm = TRUE)
+
+```
+
+
 
 ```{r}
 grid <- stack(DECLI, ELEV, TWI, VD, CNBL)
