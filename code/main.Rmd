@@ -129,11 +129,11 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
-DECLI1 <- raster::raster("../data/Covars/SLOPE.tif")
-ELEV1 <- raster::raster("../data/Covars/ELEV.tif")
-VD1 <- raster::raster("../data/Covars/VD.tif")
-TWI1 <- raster::raster("../data/Covars/TWI.tif")
-CNBL1 <- raster::raster("../data/Covars/CNBL.tif")
+DECLI <- raster::raster("../data/Covars/SLOPE.tif")
+ELEV <- raster::raster("../data/Covars/ELEV.tif")
+VD <- raster::raster("../data/Covars/VD.tif")
+TWI <- raster::raster("../data/Covars/TWI.tif")
+CNBL <- raster::raster("../data/Covars/CNBL.tif")
 ```
 
 A partir da função `raster::extract` extraí os valores de cada objeto na localização de cada observação contida no objeto espacial `pontos`.
@@ -144,12 +144,12 @@ A partir da função `raster::extract` extraí os valores de cada objeto na loca
 # dados para além dos limites da área de estudo).
 tmp <- vector(length = 10)
 for (i in seq(tmp)) {
-  pontos$DECLI <- raster::extract(DECLI1, pontos, buffer = 5 * i, fun = mean)
-  pontos$ELEV <- raster::extract(ELEV1, pontos, buffer = 5 * i, fun = mean)
-  pontos$VD <- raster::extract(VD1, pontos, buffer = 5 * i, fun = mean)
-  pontos$TWI <- raster::extract(TWI1, pontos, buffer = 5 * i, fun = mean)
-  pontos$CNBL <- raster::extract(CNBL1, pontos, buffer = 5 * i, fun = mean)
-  tmp[i] <- summary(lm(PFd ~ DECLI1 + ELEV1 + VD1 + TWI1 + CNBL1, pontos))$adj.r.squared
+  pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 5 * i, fun = mean)
+  pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5 * i, fun = mean)
+  pontos$VD <- raster::extract(VD, pontos, buffer = 5 * i, fun = mean)
+  pontos$TWI <- raster::extract(TWI, pontos, buffer = 5 * i, fun = mean)
+  pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 5 * i, fun = mean)
+  tmp[i] <- summary(lm(PFd ~ DECLI + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
 }
 
 pander::pandoc.table(
@@ -174,7 +174,6 @@ colnames(grid@coords) <- colnames(pontos@coords)
 
 ```{r}
 #Reamostragem grid
-
 grid$DECLI <- raster::extract(DECLI, grid, buffer = 50, fun = mean)
 grid$ELEV <- raster::extract(ELEV, grid, buffer = 50, fun = mean)
 grid$VD <- raster::extract(VD, grid, buffer = 50, fun = mean)
@@ -182,13 +181,16 @@ grid$TWI <- raster::extract(TWI, grid, buffer = 50, fun = mean)
 grid$CNBL <- raster::extract(CNBL, grid, buffer = 50, fun = mean)
 ```
 
+```{r}
+sp::gridded(grid) <- TRUE
+raster::writeRaster(grid, "DECLI_R", format = "GTiff")
+```
+
 ```{r fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
 par(mfrow=c(2,1))
 plot(DECLI1,main='Declividade')
 plot(DECLI, main='Declividade reamostrado 100 m')
 ```
-
-
 #### Covariável de produção
 
 Durante o manejo de florestas comerciais, a maioria das decisões envolve avaliação da capacidade produtiva das áreas florestais em estado de ordenação, utilizando estas áreas homogêneas. A determinação da capacidade produtiva das áreas é fator básico na condução de povoamentos e no planejamento da produção madeireira, pois esses índices são utilizados na previsão de tratos e métodos de manejo da floresta conforme o desempenho projetado para a espécie em cada sítio.
