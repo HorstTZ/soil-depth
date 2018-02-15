@@ -222,14 +222,14 @@ Utilizei a função `raster::raster` para carregar o polígono com informações
 
 ```{r}
 #raster produtividade
-Sitio <- raster::raster("../data/Covars/Sitio.tif")
-Sitio <- as.factor(Sitio)
-sp::proj4string(Sitio) <- wgs84utm22s
-pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
-pontos <- na.omit(pontos)
-#plot
-plot(Sitio, main = paste("n = ", length(pontos)))
-points(pontos@coords)
+# Sitio <- raster::raster("../data/Covars/Sitio.tif")
+# Sitio <- as.factor(Sitio)
+# sp::proj4string(Sitio) <- wgs84utm22s
+# pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
+# pontos <- na.omit(pontos)
+# #plot
+# plot(Sitio, main = paste("n = ", length(pontos)))
+# points(pontos@coords)
 ```
 
 ```{r}
