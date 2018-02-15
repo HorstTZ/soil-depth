@@ -63,11 +63,11 @@ sp::proj4string(pontos) <- wgs84utm22s
 Os dados que estão em áreas de preservação permaneten, ou seja, fora das áreas produtivas foram omitidos e, permaneceram no conjunto de dados para esse trabalho 98 pontos.
 
 ```{r}
-Sitio <- raster::raster("../data/Covars/Sitio.tif")
-Sitio <- as.factor(Sitio)
-sp::proj4string(Sitio) <- wgs84utm22s
-pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
-pontos <- pontos[!is.na(pontos$Sitio), ]
+# Sitio <- raster::raster("../data/Covars/Sitio.tif")
+# Sitio <- as.factor(Sitio)
+# sp::proj4string(Sitio) <- wgs84utm22s
+# pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
+# pontos <- pontos[!is.na(pontos$Sitio), ]
 ```
 
 A localização dos pontos no espaço pode ser observada a seguir:
