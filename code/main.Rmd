@@ -153,7 +153,6 @@ A partir da função `raster::extract` extraí os valores de cada objeto na loca
 # dados para além dos limites da área de estudo).
 buffer <- vector(length = 10)
 for (i in seq(tmp)) {
-  i <- 1
   pontos$SLOPE <- raster::extract(SLOPE, pontos, buffer = 5 * i, fun = mean)
   pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5 * i, fun = mean)
   pontos$VD <- raster::extract(VD, pontos, buffer = 5 * i, fun = mean)
@@ -191,30 +190,14 @@ pontos$TWI <- raster::extract(TWI, pontos, buffer = 50, fun = mean)
 pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 50, fun = mean)
 ```
 
-```{r}
-w <- focalWeight(SLOPE, 50, "circle")
-
-SLOPE <- focal(SLOPE, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(SLOPE){ SLOPE[is.nan(SLOPE)] = NA; SLOPE})
-
-ELEV <- focal(ELEV, w= w, fun = min, na.rm=T, NAonly=TRUE, pad=TRUE, padValue=NA) %>% 
-  calc(function(ELEV){ ELEV[is.nan(ELEV)] = NA; ELEV})
-
-TWI <- focal(TWI, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(TWI){ TWI[is.nan(TWI)] = NA; TWI})
-
-CNBL <- focal(CNBL, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(CNBL){ CNBL[is.nan(CNBL)] = NA; CNBL})
-
-VD <- focal(VD, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(VD){ VD[is.nan(VD)] = NA; VD})
-
-```
-
-```{r}
-par(mfrow=c(2,1))
-plot(ELEV,main='X')
-plot(NELEV, main='Declividade Circular moving window filter, 50m radius')
+```{r, fig.asp=1}
+w <- focalWeight(x = SLOPE, d = 50, type = "circle")
+# Os pesos são frações. Então é preciso somar ao invés de calcular a média.
+SLOPE <- focal(x = SLOPE, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+ELEV <- focal(x = ELEV, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+TWI <- focal(x = TWI, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+CNBL <- focal(x = CNBL, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+VD <- focal(x = VD, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
 ```
 
 #### Covariável de produção
