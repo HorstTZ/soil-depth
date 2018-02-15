@@ -200,6 +200,13 @@ CNBL <- focal(x = CNBL, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
 VD <- focal(x = VD, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
 ```
 
+```{r}
+# Note que os valores não são os mesmos. Isso se deve ao efeito de borda: não há dados para além do 
+# limite da área de estudo. Sugiro usar 'extract' em ambos os casos para obter os mesmos resultados.
+extract(SLOPE, pontos) - pontos$SLOPE
+```
+
+
 #### Covariável de produção
 
 Durante o manejo de florestas comerciais, a maioria das decisões envolve avaliação da capacidade produtiva das áreas florestais em estado de ordenação, utilizando estas áreas homogêneas. A determinação da capacidade produtiva das áreas é fator básico na condução de povoamentos e no planejamento da produção madeireira, pois esses índices são utilizados na previsão de tratos e métodos de manejo da floresta conforme o desempenho projetado para a espécie em cada sítio.
@@ -225,12 +232,13 @@ Utilizei a função `raster::raster` para carregar o polígono com informações
 # Sitio <- raster::raster("../data/Covars/Sitio.tif")
 # Sitio <- as.factor(Sitio)
 # sp::proj4string(Sitio) <- wgs84utm22s
-# pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
+# pontos$Sitio <- raster::extract(Sitio, pontos) %VD>% as.factor()
 # pontos <- na.omit(pontos)
 # #plot
 # plot(Sitio, main = paste("n = ", length(pontos)))
 # points(pontos@coords)
 ```
+
 
 ```{r}
 form <- PFd ~ SLOPE + ELEV + VD + TWI + CNBL
