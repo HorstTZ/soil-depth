@@ -126,6 +126,8 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
+# Se somente essas covariáveis são usadas, então porque o diretório 'data' está cheio de arquivos ocupando
+# espaço desnecessário no GitHub?
 SLOPE <- raster::raster("../data/Covars/SLOPE.tif")
 ELEV <- raster::raster("../data/Covars/ELEV.tif")
 VD <- raster::raster("../data/Covars/VD.tif")
