@@ -23,8 +23,6 @@ library(georob)
 library(sp)
 library(mapview)
 library(raster)
-library(caret)
-library(randomForest)
 ```
 
 # Objetivo
