@@ -136,7 +136,7 @@ CNBL <- raster::raster("../data/Covars/CNBL.tif")
 ```
 
 ```{r, fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
-par(mfrow=c(2,2))
+par(mfrow=c(2,3))
 plot(ELEV, main='Elevação') 
 plot(SLOPE,main='Declividade')
 plot(VD, main='Profundidade do vale')
@@ -151,29 +151,33 @@ A partir da função `raster::extract` extraí os valores de cada objeto na loca
 # Identificar o tamanho ótimo da vizinhança para amostragem das covariáveis
 # Avaliação de raio de 5 até 50 m. Raio maior não é considerado devido ao efeito de borda (ausência de
 # dados para além dos limites da área de estudo).
-tmp <- vector(length = 10)
+buffer <- vector(length = 10)
 for (i in seq(tmp)) {
+  i <- 1
   pontos$SLOPE <- raster::extract(SLOPE, pontos, buffer = 5 * i, fun = mean)
   pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5 * i, fun = mean)
   pontos$VD <- raster::extract(VD, pontos, buffer = 5 * i, fun = mean)
   pontos$TWI <- raster::extract(TWI, pontos, buffer = 5 * i, fun = mean)
   pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 5 * i, fun = mean)
-  tmp[i] <- summary(lm(PFd ~ SLOPE + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
+  buffer[i] <- summary(lm(PFd ~ SLOPE + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
 }
+# Salvar resultados para não ter que executar tudo novamente da próxima vez
+save(buffer, file = "../data/buffer.rda")
 pander::pandoc.table(
-  data.frame(5 * seq(tmp), tmp), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
+  data.frame(5 * seq(buffer), buffer), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
   col.names = c("Buffer (m)", "Adj R^2^"))
 ```
 
 ```{r}
 #gráfico R2 ~ janela de amostragem
-a <- seq(5, 50, 5)
-b <- c(0.096, 0.061, 0.062, 0.065, 0.068, 0.069, 0.075, 0.084, 0.092, 0.099)
+# a <- seq(5, 50, 5)
+# Esses dados estão registrados no objeto tmp acima. Use o objeto tmp para fazer essa figura. Não faz sentido 
+# digitar manualmente os dados -- isso é quase um sacrilégio!
+# b <- c(0.096, 0.061, 0.062, 0.065, 0.068, 0.069, 0.075, 0.084, 0.092, 0.099)
 
 par(font.lab = 6)
-plot(b ~ a, type = "b", pch = 1, cex.axis = 1.7, cex.lab = 1.7, font.axis = 6, mgp = c(2,.5, 0),
-     xlab="Janela de amostragem (m)", 
-     ylab= expression("R"^"2"))
+plot(y = buffer, x = 5 * seq(buffer), type = "b", pch = 1, cex.axis = 1.7, cex.lab = 1.7, font.axis = 6, 
+     mgp = c(2, .5, 0), xlab = "Janela de amostragem (m)",  ylab = expression("R"^"2"))
 grid()
 ```
 
