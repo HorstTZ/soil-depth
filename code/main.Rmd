@@ -44,7 +44,7 @@ knitr::include_graphics('../docs/figura1.png')
 
 # Amostragem
 
-A coleta de dados foi realizada em 102 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs` do pacote **clhs** para R. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade topográfico, nivel base da rede de drenagem e declividade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
+A coleta de dados foi realizada em 102 pontos (Figura 1 b) alocados pelo algoritmo Hipercubo Latino Condicionado *(Conditioned Latin Hipercube Sampling – cLHS)* através da função `clhs` do pacote **clhs** para R. Foram consideradas como variáveis condicionantes da amostragem a elevação, profundidade do vale, índice de umidade topográfico, nivel base da rede de drenagem e SLOPEvidade as quais, juntas, explicaram aproximadamente 86% da variância topográfica, identificada através da Análise de Componentes Principais (ACP).
 
 Em cada ponto amostral foi medida a profundidade do solum (PF). Consideramos solum a espessura máxima do solo onde as raízes podem se desenvolver sem impedimentos físicos para penetração livre das raízes. Os fatores limitantes considerados foram o lençol freático elevado e o contato com rocha consolidada (contato lítico) com ou sem fissuras.
 
@@ -57,11 +57,6 @@ Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsData
 ```{r}
 rm(list = ls())
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
-# ASR: Suponho que o correto seja arredondar os valores de profundidade. Do contrário é o mesmo que usar em 
-#     centímetros. Também suponho que seria importante explicar a razão desse procedimento.
-
-# TZH: Entendo que os valores foram arredondados do campo. Todos os valores de profundidade foram tomados como sendo múltiplos de 0,5 dm. Na planilha original eles foram anotados como sendo em centímetros. Entendo que não é certo usar a medida de centímetro pela questão da precisão com que os números foram obtidos. O arredondamento que tu se refere é dos valores 1,5 e 5,5 para inteiros? Pq da forma que esta no script os valores não mudaram (nem usando o parâmetro digits = 0 da função round) por causa da precisão. Pode me explicar melhor?
-
 pontos$PFd <- pontos$PF / 10 %>% round()
 sp::coordinates(pontos) <- c('X' , 'Y')
 wgs84utm22s <- sp::CRS('+proj=utm +zone=22 +south +ellps=WGS84 +datum=WGS84 +units=m +no_defs')
@@ -94,14 +89,24 @@ Como uma análise preliminar avaliei a distribuição de frequências dos dados 
 summary(pontos$PFd)
 ```
 
-```{r fig.asp=1}
-histogram(pontos$PFd) + latticeExtra::layer(panel.grid(v = 0)) + latticeExtra::layer(panel.rug(pontos$PFd))
+```{r}
+par(font.axis = 6)
+histogram(
+  pontos$PFd, type = "count",
+  ylab = list(label="Número de observações", cex=1.7),
+  xlab = list(label="PS (dm)", cex=1.7),
+  col = "gray82",
+  scales=list(cex=1.7)) + 
+  
+latticeExtra::layer(panel.grid()) +
+latticeExtra::layer(panel.rug(pontos$PFd))
+
+
 ```
 
 
 ## Modelo linear misto de variação espacial
 
-<!-- ASR: O objetivo do relatório é conter, além dos resultados das análises, um relato de sua experiência, sua forma de ver e entender o conteúdo e o que foi feito. Os parágrafos abaixo são, fundamentalmente, uma cópia modificada do texto do material de apoio. Não há muito sentido em incluir isso no seu relatório. Ademais, essa prática pode ser interpretada como plágio. Tome muito cuidado com isso no futuro. -->
 
 Para modelagem geoestatística dos dados foi utilizado o modelo linear misto de variação espacial denotado por
 
@@ -127,33 +132,37 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
-DECLI <- raster::raster("../data/Covars/DECLI.tif")
+SLOPE <- raster::raster("../data/Covars/SLOPE.tif")
 ELEV <- raster::raster("../data/Covars/ELEV.tif")
 VD <- raster::raster("../data/Covars/VD.tif")
 TWI <- raster::raster("../data/Covars/TWI.tif")
+CNBL <- raster::raster("../data/Covars/CNBL.tif")
 ```
 
 ```{r, fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
 par(mfrow=c(2,2))
 plot(ELEV, main='Elevação') 
-plot(DECLI,main='Declividade')
+plot(SLOPE,main='Declividade')
 plot(VD, main='Profundidade do vale')
 plot(TWI, main='Índice de umidade topográfica')
+plot(CNBL, main= 'Channel network basic level')
 ```
+
 
 A partir da função `raster::extract` extraí os valores de cada objeto na localização de cada observação contida no objeto espacial `pontos`.
 
-```{r}
+```{r, warming = FALSE}
 # Identificar o tamanho ótimo da vizinhança para amostragem das covariáveis
 # Avaliação de raio de 5 até 50 m. Raio maior não é considerado devido ao efeito de borda (ausência de
 # dados para além dos limites da área de estudo).
 tmp <- vector(length = 10)
 for (i in seq(tmp)) {
-  pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 5 * i, fun = mean)
+  pontos$SLOPE <- raster::extract(SLOPE, pontos, buffer = 5 * i, fun = mean)
   pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5 * i, fun = mean)
   pontos$VD <- raster::extract(VD, pontos, buffer = 5 * i, fun = mean)
   pontos$TWI <- raster::extract(TWI, pontos, buffer = 5 * i, fun = mean)
-  tmp[i] <- summary(lm(PFd ~ DECLI + ELEV + VD + TWI, pontos))$adj.r.squared
+  pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 5 * i, fun = mean)
+  tmp[i] <- summary(lm(PFd ~ SLOPE + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
 }
 pander::pandoc.table(
   data.frame(5 * seq(tmp), tmp), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
@@ -161,11 +170,51 @@ pander::pandoc.table(
 ```
 
 ```{r}
+#gráfico R2 ~ janela de amostragem
+a <- seq(5, 50, 5)
+b <- c(0.096, 0.061, 0.062, 0.065, 0.068, 0.069, 0.075, 0.084, 0.092, 0.099)
+
+par(font.lab = 6)
+plot(b ~ a, type = "b", pch = 1, cex.axis = 1.7, cex.lab = 1.7, font.axis = 6, mgp = c(2,.5, 0),
+     xlab="Janela de amostragem (m)", 
+     ylab= expression("R"^"2"))
+grid()
+```
+
+
+```{r, warming = FALSE}
 # Tamanho ótimo da vizinhança para amostragem das covariáveis: raio de 50 m
-pontos$DECLI <- raster::extract(DECLI, pontos, buffer = 50, fun = mean)
+pontos$SLOPE <- raster::extract(SLOPE, pontos, buffer = 50, fun = mean)
 pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 50, fun = mean)
 pontos$VD <- raster::extract(VD, pontos, buffer = 50, fun = mean)
 pontos$TWI <- raster::extract(TWI, pontos, buffer = 50, fun = mean)
+pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 50, fun = mean)
+```
+
+```{r}
+w <- focalWeight(SLOPE, 50, "circle")
+
+SLOPE <- focal(SLOPE, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
+  calc(function(SLOPE){ SLOPE[is.nan(SLOPE)] = NA; SLOPE})
+
+ELEV <- focal(ELEV, w= w, fun = min, na.rm=T, NAonly=TRUE, pad=TRUE, padValue=NA) %>% 
+  calc(function(ELEV){ ELEV[is.nan(ELEV)] = NA; ELEV})
+
+TWI <- focal(TWI, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
+  calc(function(TWI){ TWI[is.nan(TWI)] = NA; TWI})
+
+CNBL <- focal(CNBL, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
+  calc(function(CNBL){ CNBL[is.nan(CNBL)] = NA; CNBL})
+
+VD <- focal(VD, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
+  calc(function(VD){ VD[is.nan(VD)] = NA; VD})
+
+```
+
+```{r}
+par(mfrow=c(2,1))
+plot(ELEV,main='X')
+plot(NELEV, main='Declividade Circular moving window filter, 50m radius')
 ```
 
 #### Covariável de produção
@@ -189,36 +238,24 @@ Apesar das parcelas de inventário serem alocadas de maneira sistemática, a dim
 Utilizei a função `raster::raster` para carregar o polígono com informações das sítio - armazenado no objeto `Sitio`. A função `sp::spTransform` foi usada para projetar as coordenadas original no plano cartesiano (UTM) e a função `raster::extract` para extraír os valores de cada objeto raster nas localizações de cada observação contidas no objeto espacial `pontos`.
 
 ```{r}
+#raster produtividade
 Sitio <- raster::raster("../data/Covars/Sitio.tif")
 Sitio <- as.factor(Sitio)
 sp::proj4string(Sitio) <- wgs84utm22s
 pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
 pontos <- na.omit(pontos)
-```
-
-```{r}
+#plot
 plot(Sitio, main = paste("n = ", length(pontos)))
 points(pontos@coords)
 ```
 
-<!-- ASR: Vejo que a mesma informação espacial está sendo usada em dois formatos, raster e shape. Isso pode facilmente resultar em erros. Use apenas um tipo de dado. -->
-```{r, fig.cap = " Classificação dos sítios e  localização dos pontos na área de estudo"}
-ProdutividadePistola <- 
- raster::shapefile('../data/Produtividade/ProdutividadePistola.shp') %>%
- sp::spTransform(wgs84utm22s)
-ProdutividadePistola$Sitio <- as.factor(ProdutividadePistola$Sitio)
-
-sp::spplot(
-  ProdutividadePistola, scales = list(draw = T),
-  main = 'Classificação dos sítios e  localização dos pontos') +
-  lattice::xyplot(Y ~ X, data = as.data.frame(pontos@coords),
-                  pch = 20, col = 'red', lwd = 2, cex = 1.5) %>%
-latticeExtra::as.layer()
+```{r}
+form <- PFd ~ SLOPE + ELEV + VD + TWI + CNBL
+lm(form, data = pontos@data) %>% summary()
 ```
 
 ```{r}
-form <- PFd ~ DECLI + ELEV + VD + TWI
-lm(form, data = pontos@data) %>% summary()
+nndist(pontos@coords) %>% mean()
 ```
 
 ## Variograma amostral
@@ -226,9 +263,10 @@ lm(form, data = pontos@data) %>% summary()
 O variograma amostral (Figura 7) foi computado através da função `georob::sample.variogram`. O estimador para semivariãncia foi Matheron (método dos momentos).
 Para a obtenção dos parâmetros utilizei um corte de 66% da distância máxima entre os pontos, armazenada no objeto `distmax`, excluindo os pares de longa distãncia.
 
-<!-- ASR: Antes de computar o variograma omnidirecional, é importante verificar se há efeitos direcionais. -->
-
 ```{r}
+form <- PFd ~ SLOPE + ELEV + VD + TWI + CNBL
+#verificar efeitos direcionais
+
 distmax <-dist(pontos@coords) %>% max() / 3
 limites <- seq(0, distmax, length.out = 20)
 vario <- georob::sample.variogram(form,
@@ -237,9 +275,10 @@ plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.
 ```
 
 ```{r fig.asp=1, fig.width=7, fig.height=7, fig.cap=" Variograma amostral"}
+#computar variograma omnidirecional
 distmax <-dist(pontos@coords) %>% max() / 3
 limites <- seq(0, distmax, length.out = 20)
-vario <- georob::sample.variogram(form,
+vario <- georob::sample.variogram(PFd ~ SLOPE + ELEV + VD + TWI + CNBL,
     data= pontos, locations = ~ X + Y, lag.dist.def = limites, estimator = "matheron") %>%
 plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.npairs = TRUE, main = "Semivariograma")
 ```
@@ -249,7 +288,6 @@ plot(ylab = 'Seminvariância', xlab = 'Distância de separação (m)', annotate.
 O método de ajuste empregado no variograma amostral foi o de quadrados mínimos não-lineares ponderados, com ajuste de um modelo exponencial, com ponderação definida conforme o método de "Cressie". O processo de estimativa dos parâmetros do modelo exponencial do variograma foi conduzido via otimização usando a função `stats::optim(method = "BFGS")`.
 A função resultante desse processo foi armazenada no objeto `vario_fit`.
 
-<!-- ASR: Como o valor do nugget foi definido? -->
 ```{r}
 vario_fit <- 
   georob::fit.variogram.model(
@@ -264,42 +302,96 @@ plot(vario, xlab = 'Distância de separação (m)', ylab = 'Semivariância', ann
 lines(vario_fit, col = "red", lty = 'dashed')
 ```
 
-<!-- ASR: A variância é um valor ao quadro. Então a unidade de medida é 0,5 dm². Contudo, acima, o nugget foi definido como sendo 5 dm² e não foi fixado. O valor final estimado para o nugget foi de 1.9834 dm². -->
 Considerando que durante a obteção dos dados de campo as informações de profundidade do solum os valores foram obtidos em decímetros, considerei que a variância do erro de medida é igual a 0,5 dm devido ao arredondamento dos valores.
-
-<!-- ASR: Não está claro o que é erro de medida e variância do erro de medida. -->
 Assim, foi possível discretizar a variância não explicada em erro de medida corresponde 0,25 do parâmetro `nugget`. A variância restante foi atribuída a variação espacial não auto-correlacionada espacialmente - não capturada pelo plano amostral `snugget`.
-A função resultante desse processo foi armazenado no objeto `vario_fit_error`.
+A função resultante desse processo foi armazenado no objeto `vario_fit_nug`.
 
 ```{r, warning=FALSE}
-nugget <- 0.25
-vario_fit_error <- georob::georob(
-   form, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
+#MODELO AJUSTADO COM EFEITO PEPITA FIXO
+nug <- 0.25
+vario_fit_nug <- georob::georob(
+   PFd ~ SLOPE + ELEV + VD + TWI + CNBL, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
  param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
-           nugget = nugget,
-           snugget = vario_fit$variogram.object[[1]]$param[['nugget']] - nugget,
+           nugget = nug,
+           snugget = vario_fit$variogram.object[[1]]$param[['nugget']] - nug,
            scale = vario_fit$variogram.object[[1]]$param[['scale']]),
  fit.param = georob::default.fit.param(nugget = FALSE, snugget = TRUE),
  tuning.psi = 1000, control = georob::control.georob(initial.fixef = 'lm'))
-summary(vario_fit_error)
+summary(vario_fit_nug)
 ```
 
-A comparação entre as funções `vario_fit_error` e `vario_fit` está na figura 9.
+```{r, warning=FALSE}
+#MODELO AJUSTADO COM EFEITO PEPITA LIVRE
+vario_fit <- georob::georob(
+   PFd ~ SLOPE + ELEV + VD + TWI + CNBL, pontos, locations = ~ X + Y, variogram.model = 'RMexp', 
+ param = c(variance = vario_fit$variogram.object[[1]]$param[['variance']], 
+           nugget = vario_fit$variogram.object[[1]]$param[['nugget']],
+           scale = vario_fit$variogram.object[[1]]$param[['scale']]),
+ fit.param = georob::default.fit.param(nugget = TRUE),
+ tuning.psi = 1000, control = georob::control.georob(initial.fixef = 'lm'))
+summary(vario_fit)
+```
 
-<!-- ASR: Claramente existe uma estrutura de autocorrelação espacial estruturada à 200-400 metros. Talvez seja um efeito direcional. -->
+A comparação entre as funções com efeito pepita livre `vario_fit` e efeito pepita fixo `vario_fit_nug` está na figura 9.
+
 ```{r, fig.asp=1, fig.cap=" Variograma amostral (em preto) do modelo linear da profundidade do solum e a função exponencial a ele ajustada (azul) e a função ajustada com erro de medida fixo"}
-plot(vario)
-lines(vario_fit, col = "blue")
-lines(vario_fit_error, col = "red")
+
+par(font.lab=6)
+plot(vario, type = "b", annotate.npairs = TRUE, font.axis = 6, npairs.cex = 1, npairs.pos = 3, ylab = "Semivariância", xlab = "Distância (lag)", cex.lab = 1.7, cex.axis = 1.7)
+lines(vario_fit_nug, col = "red") #efeito pepita fixo
+lines(vario_fit, col = "blue") #efeito pepita livre
+grid()
 ```
 
-A função `vario_fit_error` foi utilizada para a predição espacial.
-  Para isso foi criado um grid de predição abrangendo a área de estudo. A partir da função `raster::extract` foram extraídos os valores do objeto `DECLI` e armazenados no novo conjunto de dados `grid`.
+Perfil da função logarítmica da verossimilhança restrita para o parâmetro alcance (scale). A linhas verticais representam a estimativa e intervalo de confiança do parâmetro alcance. A interseção entre a linha horizontal e o perfil indica a região de 95% de confiança para o parâmetro alcance segundo o teste da razão de verossimilhança.
 
 ```{r}
-grid <- stack(DECLI, ELEV, TWI, VD)
+#Perfil da função logarítmica da verossimilhança restrita para o parâmetro alcance (scale)
+#a função profilelogLik não entende a fórmula usada "form". Trocar
+
+#NUGGET LIVRE
+prof_vario_fit_scale <- 
+    georob::profilelogLik(object = vario_fit, values = data.frame(scale = seq(10, 350, by = 10)))
+
+par(font.lab=6)
+plot(loglik ~ scale, prof_vario_fit_scale, type = "l", font.main = 6, cex.main = 1.7,
+     main = "Efeito pepita livre"  ,xlab = 'Alcance (m)',
+     cex.lab=1.7, cex.axis=1.7,  font.axis = 6)
+abline(v = summary(vario_fit)$param.aniso[[1]]['scale', ],
+       lty = c("dashed", rep('dotted', 2)), col = 'red')
+abline(h = vario_fit$loglik - 0.5 * qchisq(0.95, 1), lty = "dotted")
+grid()
+
+#NUGGET FIXO
+prof_vario_fit_nug_scale <- 
+    georob::profilelogLik(object = vario_fit_nug, values = data.frame(scale = seq(10, 350, by = 10)))
+
+par(font.lab=6)
+plot(loglik ~ scale, prof_vario_fit_nug_scale, type = "l", font.main = 6, cex.main = 1.7,
+     main = "Efeito pepita fixo", xlab = 'Alcance (m)',
+     cex.lab=1.7, cex.axis=1.7,  font.axis = 6)
+abline(v = summary(vario_fit_nug)$param.aniso[[1]]['scale', ],
+       lty = c("dashed", rep('dotted', 2)), col = 'red')
+abline(h = vario_fit_nug$loglik - 0.5 * qchisq(0.95, 1), lty = "dotted")
+grid()
+
+```
+
+
+Relação das estimativas da variância parcial (variance) e da estimativa do alcance (scale).
+
+```{r}
+plot(variance ~ scale, prof_vario_fit_nug_scale, ylim = c(0, max(variance)), type = "l")
+```
+
+A função `vario_fit_nug` foi utilizada para a predição espacial.
+  Para isso foi criado um grid de predição abrangendo a área de estudo. A partir da função `raster::extract` foram extraídos os valores do objeto `SLOPE` e armazenados no novo conjunto de dados `grid`.
+
+```{r}
+grid <- stack(SLOPE, ELEV, TWI, VD, CNBL)
 grid <- as(grid, 'SpatialPointsDataFrame')
 colnames(grid@coords) <- colnames(pontos@coords)
+names(grid) <- c("SLOPE", "ELEV", "TWI", "VD", "CNBL")
 ```
 
 ## Predição espacial da resposta do modelo linear misto
@@ -309,24 +401,35 @@ Utilizei a saída extendida do `georob::control.predict.georob(extended.output =
 
 ```{r, fig.width=10, warning=FALSE,  fig.cap= "Mapas de predição - saída extendida do georob"}
 pred_ponto <- predict(
-  vario_fit_error, newdata = grid, type = "response", signif = 0.95,
+  vario_fit_nug, newdata = grid, type = "response", signif = 0.95, na.rm = TRUE,
   control = georob::control.predict.georob(extended.output = TRUE))
 sp::gridded(pred_ponto) <- TRUE
 spplot(pred_ponto)
+```
+
+```{r}
+raster::extract(pontos, pred_ponto)
+pontos$pred_PF <- raster::extract(pred_ponto, pontos)
 ```
 
 O mapa `trend` definido como a média espacial dos efeitos deterministicos, é semelhante ao mapa dos valores mais prováveis de predição `pred`. Isso demonstra a relação entre a variância espacial da profundidade do solum que pode ser explicada pela declividade.
 
 ```{r, fig.width=10}
 at <- pred_ponto@data[, c("pred", "lower", "upper")] %>% range(na.rm = TRUE)
+at <- pred_ponto@data[, c("pred")]  
+
+#range(at, na.rm = TRUE)
+#at <- seq(at[1], at[2], length.out = 20)
 at <- seq(at[1], at[2], length.out = 20)
+
+pred_ponto@data[, c("pred")] %>% range(na.rm = TRUE)
 ```
 
 A krigagem tenta minimizar o valor esperado do erro entre o valor predito e o medido. Mesmo assim o intervalo de predição observado é grande. A medida de variância demonstrada a medida de incerteza do modelo para cada ponto e esse intervalo amplo entre os valores mínimo e máximo de predição demonstra o quão incerto é o modelo.
 
 ```{r, fig.asp=1}
 spplot(pred_ponto, zcol = "lower", at = at, main="Limite inferior")
-spplot(pred_ponto, zcol="pred", at=at, main="Realização mais provável")
+spplot(pred_ponto, zcol="pred", at=at, main="Realização mais provável") 
 spplot(pred_ponto, zcol="upper", at=at, main="Limite superior")
 ```
 
@@ -339,7 +442,11 @@ Para isso utilizei a função `cv::georob`. Defini o número o número $k$ de su
 
 ```{r}
 nset <- length(pontos) - 1
+<<<<<<< HEAD
 validacao <- georob::cv(vario_fit_error, nset = nset)
+
+validacao <- georob::cv(vario_fit_nug, nset = nset, replace = TRUE)
+
 summary(validacao)
 ```
 
