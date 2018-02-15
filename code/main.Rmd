@@ -53,7 +53,6 @@ Cada ponto de amostragem representa uma área de aproximadamente 100 m^2^ no cam
 Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsDataFrame` com as coordenadas projetadas em WGS84.
 
 ```{r}
-rm(list = ls())
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
 pontos$PFd <- pontos$PF / 10 %>% round()
 sp::coordinates(pontos) <- c('X' , 'Y')
