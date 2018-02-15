@@ -90,15 +90,12 @@ summary(pontos$PFd)
 par(font.axis = 6)
 histogram(
   pontos$PFd, type = "count",
-  ylab = list(label="Número de observações", cex=1.7),
-  xlab = list(label="PS (dm)", cex=1.7),
+  ylab = list(label = "Número de observações", cex = 1.7),
+  xlab = list(label = "PS (dm)", cex = 1.7),
   col = "gray82",
-  scales=list(cex=1.7)) + 
-  
-latticeExtra::layer(panel.grid()) +
-latticeExtra::layer(panel.rug(pontos$PFd))
-
-
+  scales = list(cex = 1.7)) + 
+  latticeExtra::layer(panel.grid()) +
+  latticeExtra::layer(panel.rug(pontos$PFd))
 ```
 
 
