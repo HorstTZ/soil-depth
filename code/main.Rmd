@@ -23,8 +23,6 @@ library(georob)
 library(sp)
 library(mapview)
 library(raster)
-library(caret)
-library(randomForest)
 ```
 
 # Objetivo
@@ -55,7 +53,6 @@ Cada ponto de amostragem representa uma área de aproximadamente 100 m^2^ no cam
 Os dados foram armazenados no objeto `pontos` definido como `SpatialPolygonsDataFrame` com as coordenadas projetadas em WGS84.
 
 ```{r}
-rm(list = ls())
 pontos <- read.csv('../data/GateadosDados.csv', dec = ".", sep= ";", stringsAsFactors = FALSE)
 pontos$PFd <- pontos$PF / 10 %>% round()
 sp::coordinates(pontos) <- c('X' , 'Y')
@@ -66,11 +63,11 @@ sp::proj4string(pontos) <- wgs84utm22s
 Os dados que estão em áreas de preservação permaneten, ou seja, fora das áreas produtivas foram omitidos e, permaneceram no conjunto de dados para esse trabalho 98 pontos.
 
 ```{r}
-Sitio <- raster::raster("../data/Covars/Sitio.tif")
-Sitio <- as.factor(Sitio)
-sp::proj4string(Sitio) <- wgs84utm22s
-pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
-pontos <- pontos[!is.na(pontos$Sitio), ]
+# Sitio <- raster::raster("../data/Covars/Sitio.tif")
+# Sitio <- as.factor(Sitio)
+# sp::proj4string(Sitio) <- wgs84utm22s
+# pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
+# pontos <- pontos[!is.na(pontos$Sitio), ]
 ```
 
 A localização dos pontos no espaço pode ser observada a seguir:
@@ -93,15 +90,12 @@ summary(pontos$PFd)
 par(font.axis = 6)
 histogram(
   pontos$PFd, type = "count",
-  ylab = list(label="Número de observações", cex=1.7),
-  xlab = list(label="PS (dm)", cex=1.7),
+  ylab = list(label = "Número de observações", cex = 1.7),
+  xlab = list(label = "PS (dm)", cex = 1.7),
   col = "gray82",
-  scales=list(cex=1.7)) + 
-  
-latticeExtra::layer(panel.grid()) +
-latticeExtra::layer(panel.rug(pontos$PFd))
-
-
+  scales = list(cex = 1.7)) + 
+  latticeExtra::layer(panel.grid()) +
+  latticeExtra::layer(panel.rug(pontos$PFd))
 ```
 
 
@@ -132,6 +126,8 @@ A reamostragem proporcionou a representação de 100 m² em cada pixel. Essa agr
 Os planos de informação utilizados foram importados pela ferramenta `raster::raster`e armazenados nos objetos `RasterLayer` (Figura 3).
 
 ```{r, message=FALSE}
+# Se somente essas covariáveis são usadas, então porque o diretório 'data' está cheio de arquivos ocupando
+# espaço desnecessário no GitHub?
 SLOPE <- raster::raster("../data/Covars/SLOPE.tif")
 ELEV <- raster::raster("../data/Covars/ELEV.tif")
 VD <- raster::raster("../data/Covars/VD.tif")
@@ -140,7 +136,7 @@ CNBL <- raster::raster("../data/Covars/CNBL.tif")
 ```
 
 ```{r, fig.asp=1, echo=FALSE, fig.cap = " Covariáveis topográficas utilizadas como preditoras no modelo floresta aleatória"}
-par(mfrow=c(2,2))
+par(mfrow=c(2,3))
 plot(ELEV, main='Elevação') 
 plot(SLOPE,main='Declividade')
 plot(VD, main='Profundidade do vale')
@@ -155,29 +151,32 @@ A partir da função `raster::extract` extraí os valores de cada objeto na loca
 # Identificar o tamanho ótimo da vizinhança para amostragem das covariáveis
 # Avaliação de raio de 5 até 50 m. Raio maior não é considerado devido ao efeito de borda (ausência de
 # dados para além dos limites da área de estudo).
-tmp <- vector(length = 10)
+buffer <- vector(length = 10)
 for (i in seq(tmp)) {
   pontos$SLOPE <- raster::extract(SLOPE, pontos, buffer = 5 * i, fun = mean)
   pontos$ELEV <- raster::extract(ELEV, pontos, buffer = 5 * i, fun = mean)
   pontos$VD <- raster::extract(VD, pontos, buffer = 5 * i, fun = mean)
   pontos$TWI <- raster::extract(TWI, pontos, buffer = 5 * i, fun = mean)
   pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 5 * i, fun = mean)
-  tmp[i] <- summary(lm(PFd ~ SLOPE + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
+  buffer[i] <- summary(lm(PFd ~ SLOPE + ELEV + VD + TWI + CNBL, pontos))$adj.r.squared
 }
+# Salvar resultados para não ter que executar tudo novamente da próxima vez
+save(buffer, file = "../data/buffer.rda")
 pander::pandoc.table(
-  data.frame(5 * seq(tmp), tmp), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
+  data.frame(5 * seq(buffer), buffer), caption = "Buffer and adjusted R^2^.", round = c(0, 3), 
   col.names = c("Buffer (m)", "Adj R^2^"))
 ```
 
 ```{r}
 #gráfico R2 ~ janela de amostragem
-a <- seq(5, 50, 5)
-b <- c(0.096, 0.061, 0.062, 0.065, 0.068, 0.069, 0.075, 0.084, 0.092, 0.099)
+# a <- seq(5, 50, 5)
+# Esses dados estão registrados no objeto tmp acima. Use o objeto tmp para fazer essa figura. Não faz sentido 
+# digitar manualmente os dados -- isso é quase um sacrilégio!
+# b <- c(0.096, 0.061, 0.062, 0.065, 0.068, 0.069, 0.075, 0.084, 0.092, 0.099)
 
 par(font.lab = 6)
-plot(b ~ a, type = "b", pch = 1, cex.axis = 1.7, cex.lab = 1.7, font.axis = 6, mgp = c(2,.5, 0),
-     xlab="Janela de amostragem (m)", 
-     ylab= expression("R"^"2"))
+plot(y = buffer, x = 5 * seq(buffer), type = "b", pch = 1, cex.axis = 1.7, cex.lab = 1.7, font.axis = 6, 
+     mgp = c(2, .5, 0), xlab = "Janela de amostragem (m)",  ylab = expression("R"^"2"))
 grid()
 ```
 
@@ -191,31 +190,22 @@ pontos$TWI <- raster::extract(TWI, pontos, buffer = 50, fun = mean)
 pontos$CNBL <- raster::extract(CNBL, pontos, buffer = 50, fun = mean)
 ```
 
-```{r}
-w <- focalWeight(SLOPE, 50, "circle")
-
-SLOPE <- focal(SLOPE, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(SLOPE){ SLOPE[is.nan(SLOPE)] = NA; SLOPE})
-
-ELEV <- focal(ELEV, w= w, fun = min, na.rm=T, NAonly=TRUE, pad=TRUE, padValue=NA) %>% 
-  calc(function(ELEV){ ELEV[is.nan(ELEV)] = NA; ELEV})
-
-TWI <- focal(TWI, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(TWI){ TWI[is.nan(TWI)] = NA; TWI})
-
-CNBL <- focal(CNBL, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(CNBL){ CNBL[is.nan(CNBL)] = NA; CNBL})
-
-VD <- focal(VD, w= w, fun = mean, na.rm=T, NAonly=TRUE) %>% 
-  calc(function(VD){ VD[is.nan(VD)] = NA; VD})
-
+```{r, fig.asp=1}
+w <- focalWeight(x = SLOPE, d = 50, type = "circle")
+# Os pesos são frações. Então é preciso somar ao invés de calcular a média.
+SLOPE <- focal(x = SLOPE, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+ELEV <- focal(x = ELEV, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+TWI <- focal(x = TWI, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+CNBL <- focal(x = CNBL, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
+VD <- focal(x = VD, w = w, fun = sum, pad = TRUE, na.rm = TRUE)
 ```
 
 ```{r}
-par(mfrow=c(2,1))
-plot(ELEV,main='X')
-plot(NELEV, main='Declividade Circular moving window filter, 50m radius')
+# Note que os valores não são os mesmos. Isso se deve ao efeito de borda: não há dados para além do 
+# limite da área de estudo. Sugiro usar 'extract' em ambos os casos para obter os mesmos resultados.
+extract(SLOPE, pontos) - pontos$SLOPE
 ```
+
 
 #### Covariável de produção
 
@@ -239,15 +229,16 @@ Utilizei a função `raster::raster` para carregar o polígono com informações
 
 ```{r}
 #raster produtividade
-Sitio <- raster::raster("../data/Covars/Sitio.tif")
-Sitio <- as.factor(Sitio)
-sp::proj4string(Sitio) <- wgs84utm22s
-pontos$Sitio <- raster::extract(Sitio, pontos) %>% as.factor()
-pontos <- na.omit(pontos)
-#plot
-plot(Sitio, main = paste("n = ", length(pontos)))
-points(pontos@coords)
+# Sitio <- raster::raster("../data/Covars/Sitio.tif")
+# Sitio <- as.factor(Sitio)
+# sp::proj4string(Sitio) <- wgs84utm22s
+# pontos$Sitio <- raster::extract(Sitio, pontos) %VD>% as.factor()
+# pontos <- na.omit(pontos)
+# #plot
+# plot(Sitio, main = paste("n = ", length(pontos)))
+# points(pontos@coords)
 ```
+
 
 ```{r}
 form <- PFd ~ SLOPE + ELEV + VD + TWI + CNBL
